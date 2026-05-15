@@ -28,6 +28,13 @@ def run() -> int:
 
     prune(max_age_days=30)
 
+    # Ensure IPTC categories exist in WordPress before publishing
+    try:
+        from sync_categories import sync_all
+        sync_all()
+    except Exception:
+        log.exception("IPTC category sync failed (continuing)")
+
     log.info("=" * 50)
     log.info("STEP 1 / 4 — Gathering news")
     log.info("=" * 50)
