@@ -8,9 +8,18 @@ site:
 # How many articles to generate per pipeline run
 pipeline:
   max_articles_per_run: 5
-  # Minimum word count for generated articles
   min_words: 600
   max_words: 1200
+  # Pause between articles to avoid OpenAI rate limits (new accounts)
+  delay_between_articles_seconds: 25
+
+# Featured images for posts
+images:
+  enabled: true
+  # Primary provider: pexels (free) | og_image | openai (DALL-E, ~$0.04/image)
+  provider: pexels
+  fallbacks:
+    - og_image
 
 # RSS feeds to monitor (add/remove as needed)
 rss_feeds:
@@ -51,7 +60,8 @@ newsapi:
 # OpenAI model settings
 openai:
   model: "gpt-4o-mini"
-  temperature: 0.7
+  temperature: 0.85
+  headline_temperature: 0.9
   max_tokens: 2000
 
 # WordPress categories (must match categories created in WP admin)

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
-import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -41,6 +41,8 @@ class Article:
     source_title: str
     source_url: str
     source_name: str
+    image_query: str = ""
+    featured_image: object = None  # image_fetcher.FetchedImage | None
 
 
 def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Article]:
@@ -82,10 +84,11 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
 
     # Step 2: Generate headline + metadata
     try:
+        headline_temp = config.get("openai", {}).get("headline_temperature", 0.9)
         meta_resp = client.chat.completions.create(
             model=model,
-            temperature=0.4,
-            max_tokens=300,
+            temperature=headline_temp,
+            max_tokens=350,
             messages=[
                 {"role": "system", "content": headline_prompt},
                 {"role": "user", "content": body},
@@ -96,7 +99,7 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         log.exception("Headline generation failed for: %s", story["title"])
         return None
 
-    headline, meta_desc, tags, excerpt = _parse_headline_response(meta_raw)
+    headline, meta_desc, tags, excerpt, image_query = _parse_headline_response(meta_raw)
 
     if not headline:
         headline = story["title"]
@@ -115,14 +118,16 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         source_title=story["title"],
         source_url=story["url"],
         source_name=story["source"],
+        image_query=image_query,
     )
 
 
-def _parse_headline_response(raw: str) -> tuple[str, str, list[str], str]:
+def _parse_headline_response(raw: str) -> tuple[str, str, list[str], str, str]:
     headline = ""
     meta = ""
     tags: list[str] = []
     excerpt = ""
+    image_query = ""
 
     for line in raw.splitlines():
         line = line.strip()
@@ -136,17 +141,36 @@ def _parse_headline_response(raw: str) -> tuple[str, str, list[str], str]:
             tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
         elif upper.startswith("EXCERPT:"):
             excerpt = line.split(":", 1)[1].strip()
+        elif upper.startswith("IMAGE_QUERY:"):
+            image_query = line.split(":", 1)[1].strip()
 
-    return headline, meta, tags, excerpt
+    return headline, meta, tags, excerpt, image_query
+
+
+def attach_images(articles: list[Article]) -> None:
+    """Fetch featured images for each article in place."""
+    from image_fetcher import fetch_featured_image
+
+    for article in articles:
+        article.featured_image = fetch_featured_image(
+            headline=article.headline,
+            image_query=article.image_query,
+            source_url=article.source_url,
+            tags=article.tags,
+        )
 
 
 def generate_batch(stories: list[dict]) -> list[Article]:
     """Generate articles for a batch of stories."""
     config = _load_config()
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    delay = config.get("pipeline", {}).get("delay_between_articles_seconds", 25)
 
     articles: list[Article] = []
-    for story in stories:
+    for i, story in enumerate(stories):
+        if i > 0 and delay:
+            log.info("Waiting %ds before next article (rate limit)", delay)
+            time.sleep(delay)
         log.info("Generating article for: %s", story["title"])
         article = generate_article(story, client, config)
         if article:
@@ -154,6 +178,10 @@ def generate_batch(stories: list[dict]) -> list[Article]:
             log.info("  → %s", article.headline)
         else:
             log.warning("  → FAILED, skipping")
+
+    if articles and config.get("images", {}).get("enabled", True):
+        log.info("Fetching featured images for %d articles", len(articles))
+        attach_images(articles)
 
     log.info("Generated %d / %d articles", len(articles), len(stories))
     return articles

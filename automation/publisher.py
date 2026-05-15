@@ -99,6 +99,43 @@ def _get_or_create_tags(
     return tag_ids
 
 
+def _upload_media(
+    base_url: str,
+    auth: tuple[str, str],
+    image,
+    title: str,
+) -> Optional[int]:
+    """Upload image bytes to WordPress media library. Returns attachment ID."""
+    headers = {
+        "Content-Disposition": f'attachment; filename="{image.filename}"',
+        "Content-Type": image.mime_type,
+    }
+    try:
+        resp = requests.post(
+            f"{base_url}/wp-json/wp/v2/media",
+            headers=headers,
+            data=image.data,
+            auth=auth,
+            timeout=60,
+        )
+        resp.raise_for_status()
+        media_id = resp.json()["id"]
+        # Set alt text and caption (photo credit)
+        update = {"title": title, "alt_text": image.alt_text}
+        if image.credit:
+            update["caption"] = image.credit
+        requests.post(
+            f"{base_url}/wp-json/wp/v2/media/{media_id}",
+            json=update,
+            auth=auth,
+            timeout=15,
+        )
+        return media_id
+    except Exception:
+        log.exception("Media upload failed for: %s", title)
+        return None
+
+
 def _build_article_html(article: Article) -> str:
     """Convert article body text to basic HTML with source attribution."""
     paragraphs = [p.strip() for p in article.body.split("\n\n") if p.strip()]
@@ -110,6 +147,8 @@ def _build_article_html(article: Article) -> str:
         f'target="_blank" rel="noopener noreferrer">'
         f"{article.source_name}</a></em></p>"
     )
+    if article.featured_image and article.featured_image.credit:
+        html_parts.append(f"<p><em>{article.featured_image.credit}</em></p>")
     return "\n\n".join(html_parts)
 
 
@@ -133,6 +172,12 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
 
     content_html = _build_article_html(article)
 
+    featured_media_id = None
+    if article.featured_image:
+        featured_media_id = _upload_media(
+            base_url, auth, article.featured_image, article.headline
+        )
+
     post_data = {
         "title": article.headline,
         "content": content_html,
@@ -144,6 +189,8 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
             "_yoast_wpseo_metadesc": article.meta_description,
         },
     }
+    if featured_media_id:
+        post_data["featured_media"] = featured_media_id
 
     try:
         resp = requests.post(
