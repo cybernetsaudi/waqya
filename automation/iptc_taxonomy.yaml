@@ -1,0 +1,110 @@
+# IPTC Media Topics (NewsCodes) — top-level subjects for news classification
+# Reference: https://www.iptc.org/std/NewsCodes/mediatopic/
+# Waqya maps each topic to one WordPress category + standard metadata fields.
+
+default_topic: society
+
+topics:
+  conflict_war_peace:
+    iptc_code: "medtop:16000000"
+    label: "Conflict, War and Peace"
+    wp_category: "Conflict & War"
+    description: "Armed conflict, military operations, peace processes"
+
+  crime_law_justice:
+    iptc_code: "medtop:02000000"
+    label: "Crime, Law and Justice"
+    wp_category: "Crime & Justice"
+    description: "Crime, courts, legal affairs, law enforcement"
+
+  disaster_emergency:
+    iptc_code: "medtop:03000000"
+    label: "Disaster, Accident and Emergency"
+    wp_category: "Disasters & Emergencies"
+    description: "Natural disasters, accidents, emergency response"
+
+  economy_business:
+    iptc_code: "medtop:04000000"
+    label: "Economy, Business and Finance"
+    wp_category: "Business & Economy"
+    description: "Markets, companies, trade, economic policy"
+
+  education:
+    iptc_code: "medtop:05000000"
+    label: "Education"
+    wp_category: "Education"
+    description: "Schools, universities, education policy"
+
+  environment:
+    iptc_code: "medtop:06000000"
+    label: "Environment"
+    wp_category: "Environment"
+    description: "Climate, conservation, pollution, energy transition"
+
+  health:
+    iptc_code: "medtop:07000000"
+    label: "Health"
+    wp_category: "Health"
+    description: "Public health, medicine, healthcare systems"
+
+  human_interest:
+    iptc_code: "medtop:08000000"
+    label: "Human Interest"
+    wp_category: "Human Interest"
+    description: "People-focused stories, profiles, social trends"
+
+  labour:
+    iptc_code: "medtop:09000000"
+    label: "Labour"
+    wp_category: "Labour & Work"
+    description: "Employment, unions, workplace issues"
+
+  lifestyle_leisure:
+    iptc_code: "medtop:10000000"
+    label: "Lifestyle and Leisure"
+    wp_category: "Lifestyle"
+    description: "Culture, travel, food, consumer life"
+
+  politics_government:
+    iptc_code: "medtop:11000000"
+    label: "Politics and Government"
+    wp_category: "Politics"
+    description: "Elections, policy, diplomacy, governance"
+
+  religion:
+    iptc_code: "medtop:12000000"
+    label: "Religion"
+    wp_category: "Religion"
+    description: "Faith, religious institutions and affairs"
+
+  science_technology:
+    iptc_code: "medtop:13000000"
+    label: "Science and Technology"
+    wp_category: "Science & Technology"
+    description: "Research, innovation, digital technology, AI"
+
+  society:
+    iptc_code: "medtop:14000000"
+    label: "Society"
+    wp_category: "Society"
+    description: "Social issues, demographics, community"
+
+  sport:
+    iptc_code: "medtop:15000000"
+    label: "Sport"
+    wp_category: "Sport"
+    description: "Competitions, athletes, sporting bodies"
+
+  arts_culture_media:
+    iptc_code: "medtop:01000000"
+    label: "Arts, Culture, Entertainment and Media"
+    wp_category: "Arts & Culture"
+    description: "Film, music, media industry, entertainment"
+
+# Legacy slugs from feeds → IPTC topic key
+feed_category_map:
+  tech: science_technology
+  world: politics_government
+  science: science_technology
+  business: economy_business
+  opinion: society

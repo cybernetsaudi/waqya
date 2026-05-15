@@ -43,6 +43,18 @@ class Article:
     source_name: str
     image_query: str = ""
     images: object = None  # image_fetcher.ArticleImages
+    iptc_topic: str = ""
+    iptc_code: str = ""
+    iptc_label: str = ""
+    wp_category: str = ""
+    subjects: list[str] = None
+    regions: list[str] = None
+
+    def __post_init__(self):
+        if self.subjects is None:
+            self.subjects = []
+        if self.regions is None:
+            self.regions = []
 
 
 def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Article]:
@@ -54,8 +66,12 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
     temperature = config.get("openai", {}).get("temperature", 0.7)
     max_tokens = config.get("openai", {}).get("max_tokens", 2000)
 
+    from taxonomy import normalize_tags, resolve_topic, topic_catalog_for_prompt
+
     commentary_prompt = _load_prompt("commentary")
-    headline_prompt = _load_prompt("headline")
+    headline_prompt = _load_prompt("headline").replace(
+        "{{IPTC_CATALOG}}", topic_catalog_for_prompt()
+    )
 
     user_input = (
         f"NEWS STORY\n"
@@ -99,14 +115,23 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         log.exception("Headline generation failed for: %s", story["title"])
         return None
 
-    headline, meta_desc, tags, excerpt, image_query = _parse_headline_response(meta_raw)
+    parsed = _parse_headline_response(meta_raw)
+    headline = parsed["headline"] or story["title"]
+    meta_desc = parsed["meta"] or parsed["excerpt"] or body[:155]
+    excerpt = parsed["excerpt"] or meta_desc
+    image_query = parsed["image_query"]
 
-    if not headline:
-        headline = story["title"]
-    if not meta_desc:
-        meta_desc = excerpt or body[:155]
-    if not excerpt:
-        excerpt = meta_desc
+    topic = resolve_topic(
+        parsed["iptc_topic"] or parsed["category"],
+        feed_category=story.get("category"),
+    )
+    regions = [r.strip() for r in parsed["regions"].split(",") if r.strip()]
+    subjects = [s.strip() for s in parsed["subjects"].split(",") if s.strip()]
+    tags = normalize_tags(parsed["tags"], regions=regions, max_tags=12)
+
+    # Ensure IPTC label and topic appear in tags for management/filtering
+    if topic["iptc_label"] not in tags:
+        tags.insert(0, topic["iptc_label"])
 
     return Article(
         headline=headline,
@@ -114,37 +139,62 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         meta_description=meta_desc,
         tags=tags,
         excerpt=excerpt,
-        category=story.get("category", "world"),
+        category=topic["topic_key"],
         source_title=story["title"],
         source_url=story["url"],
         source_name=story["source"],
         image_query=image_query,
+        iptc_topic=topic["topic_key"],
+        iptc_code=parsed["iptc_code"] or topic["iptc_code"],
+        iptc_label=topic["iptc_label"],
+        wp_category=topic["wp_category"],
+        subjects=subjects,
+        regions=regions,
     )
 
 
-def _parse_headline_response(raw: str) -> tuple[str, str, list[str], str, str]:
-    headline = ""
-    meta = ""
-    tags: list[str] = []
-    excerpt = ""
-    image_query = ""
+def _parse_headline_response(raw: str) -> dict:
+    fields = {
+        "headline": "",
+        "meta": "",
+        "tags": [],
+        "excerpt": "",
+        "image_query": "",
+        "iptc_topic": "",
+        "iptc_code": "",
+        "category": "",
+        "subjects": "",
+        "regions": "",
+    }
+    key_map = {
+        "HEADLINE": "headline",
+        "META": "meta",
+        "TAGS": "tags",
+        "EXCERPT": "excerpt",
+        "IMAGE_QUERY": "image_query",
+        "IPTC_TOPIC": "iptc_topic",
+        "IPTC_CODE": "iptc_code",
+        "CATEGORY": "category",
+        "SUBJECTS": "subjects",
+        "REGIONS": "regions",
+    }
 
     for line in raw.splitlines():
         line = line.strip()
-        upper = line.upper()
-        if upper.startswith("HEADLINE:"):
-            headline = line.split(":", 1)[1].strip()
-        elif upper.startswith("META:"):
-            meta = line.split(":", 1)[1].strip()
-        elif upper.startswith("TAGS:"):
-            raw_tags = line.split(":", 1)[1].strip()
-            tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
-        elif upper.startswith("EXCERPT:"):
-            excerpt = line.split(":", 1)[1].strip()
-        elif upper.startswith("IMAGE_QUERY:"):
-            image_query = line.split(":", 1)[1].strip()
+        if not line:
+            continue
+        for prefix, key in key_map.items():
+            if line.upper().startswith(f"{prefix}:"):
+                val = line.split(":", 1)[1].strip()
+                if key == "tags":
+                    fields["tags"] = [t.strip() for t in val.split(",") if t.strip()]
+                else:
+                    fields[key] = val
+                break
 
-    return headline, meta, tags, excerpt, image_query
+    if not fields["iptc_topic"] and fields["category"]:
+        fields["iptc_topic"] = fields["category"]
+    return fields
 
 
 def attach_images(articles: list[Article]) -> None:

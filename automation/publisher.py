@@ -198,10 +198,7 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
     auth = (user, password)
     config = _load_config()
 
-    category_map = config.get("categories", {})
-    category_name = category_map.get(
-        article.category, config.get("default_category", "World")
-    )
+    category_name = article.wp_category or config.get("default_category", "Society")
     cat_id = _get_or_create_category(base_url, auth, category_name)
     tag_ids = _get_or_create_tags(base_url, auth, article.tags)
 
@@ -214,7 +211,14 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
         featured_media_id = images.featured.wp_media_id
         featured_url = images.featured.wp_url
 
-    focus = article.tags[0] if article.tags else article.headline.split()[0]
+    focus = (
+        article.subjects[0]
+        if article.subjects
+        else (article.tags[0] if article.tags else article.headline.split()[0])
+    )
+    subjects_str = ", ".join(article.subjects) if article.subjects else ""
+    regions_str = ", ".join(article.regions) if article.regions else ""
+
     post_data = {
         "title": article.headline,
         "content": content_html,
@@ -226,6 +230,11 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
             "_yoast_wpseo_metadesc": article.meta_description,
             "_yoast_wpseo_title": article.headline[:60],
             "_yoast_wpseo_focuskw": focus[:60],
+            "_waqya_iptc_topic": article.iptc_topic,
+            "_waqya_iptc_code": article.iptc_code,
+            "_waqya_iptc_label": article.iptc_label,
+            "_waqya_dc_subjects": subjects_str,
+            "_waqya_coverage": regions_str,
         },
     }
     if featured_media_id:

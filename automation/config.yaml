@@ -56,14 +56,32 @@ rss_feeds:
     url: "https://www.aljazeera.com/xml/rss/all.xml"
     category: "world"
 
+# Trending topic discovery (prioritises high-interest stories)
+trending:
+  enabled: true
+  newsapi_top_headlines: true
+  google_trends: true
+  reddit_subreddits:
+    - worldnews
+    - news
+    - technology
+    - worldpolitics
+  max_keywords: 40
+  search_top_queries: 3
+
 # NewsAPI settings (supplements RSS)
 newsapi:
   enabled: true
-  # Domains to pull from (comma-separated for the API)
-  domains: "bbc.co.uk,reuters.com,techcrunch.com,theverge.com,arstechnica.com"
+  domains: "bbc.co.uk,reuters.com,techcrunch.com,theverge.com,arstechnica.com,aljazeera.com"
   language: "en"
   sort_by: "publishedAt"
   page_size: 20
+  top_headline_categories:
+    - general
+    - business
+    - technology
+    - science
+    - health
 
 # OpenAI model settings
 openai:
@@ -72,13 +90,7 @@ openai:
   headline_temperature: 0.9
   max_tokens: 2000
 
-# WordPress categories (must match categories created in WP admin)
-categories:
-  tech: "Technology"
-  world: "World"
-  science: "Science"
-  business: "Business"
-  opinion: "Opinion"
+# Primary categories follow IPTC Media Topics — see iptc_taxonomy.yaml
+default_category: "Society"
 
-# Default category if source category is unknown
-default_category: "world"
+# Legacy feed slugs (mapped to IPTC in iptc_taxonomy.yaml feed_category_map)
