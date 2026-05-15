@@ -1,0 +1,66 @@
+# ── Waqya.com Pipeline Configuration ──
+
+site:
+  name: "Waqya"
+  tagline: "AI-Powered News Commentary"
+  url: "https://waqya.com"
+
+# How many articles to generate per pipeline run
+pipeline:
+  max_articles_per_run: 5
+  # Minimum word count for generated articles
+  min_words: 600
+  max_words: 1200
+
+# RSS feeds to monitor (add/remove as needed)
+rss_feeds:
+  - name: "Reuters - World"
+    url: "https://www.rss-bridge.org/bridge01/?action=display&bridge=FilterBridge&url=https%3A%2F%2Fwww.reuters.com%2Fworld&format=Atom"
+    category: "world"
+  - name: "BBC News - Top Stories"
+    url: "http://feeds.bbci.co.uk/news/rss.xml"
+    category: "world"
+  - name: "BBC News - Technology"
+    url: "http://feeds.bbci.co.uk/news/technology/rss.xml"
+    category: "tech"
+  - name: "TechCrunch"
+    url: "https://techcrunch.com/feed/"
+    category: "tech"
+  - name: "Ars Technica"
+    url: "https://feeds.arstechnica.com/arstechnica/index"
+    category: "tech"
+  - name: "The Verge"
+    url: "https://www.theverge.com/rss/index.xml"
+    category: "tech"
+  - name: "Hacker News - Best"
+    url: "https://hnrss.org/best"
+    category: "tech"
+  - name: "Al Jazeera"
+    url: "https://www.aljazeera.com/xml/rss/all.xml"
+    category: "world"
+
+# NewsAPI settings (supplements RSS)
+newsapi:
+  enabled: true
+  # Domains to pull from (comma-separated for the API)
+  domains: "bbc.co.uk,reuters.com,techcrunch.com,theverge.com,arstechnica.com"
+  language: "en"
+  sort_by: "publishedAt"
+  page_size: 20
+
+# OpenAI model settings
+openai:
+  model: "gpt-4o-mini"
+  temperature: 0.7
+  max_tokens: 2000
+
+# WordPress categories (must match categories created in WP admin)
+categories:
+  tech: "Technology"
+  world: "World"
+  science: "Science"
+  business: "Business"
+  opinion: "Opinion"
+
+# Default category if source category is unknown
+default_category: "world"
