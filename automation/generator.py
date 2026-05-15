@@ -42,7 +42,7 @@ class Article:
     source_url: str
     source_name: str
     image_query: str = ""
-    featured_image: object = None  # image_fetcher.FetchedImage | None
+    images: object = None  # image_fetcher.ArticleImages
 
 
 def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Article]:
@@ -148,11 +148,11 @@ def _parse_headline_response(raw: str) -> tuple[str, str, list[str], str, str]:
 
 
 def attach_images(articles: list[Article]) -> None:
-    """Fetch featured images for each article in place."""
-    from image_fetcher import fetch_featured_image
+    """Fetch hero + inline images for each article in place."""
+    from image_fetcher import fetch_article_images
 
     for article in articles:
-        article.featured_image = fetch_featured_image(
+        article.images = fetch_article_images(
             headline=article.headline,
             image_query=article.image_query,
             source_url=article.source_url,

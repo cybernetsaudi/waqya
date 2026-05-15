@@ -2,7 +2,7 @@
 """
 Waqya pipeline — the main orchestrator.
 
-Runs the full cycle: gather → generate → publish → notify.
+Runs the full cycle: gather → generate → publish → SEO → notify.
 Designed to be triggered by GitHub Actions on a cron schedule.
 """
 
@@ -50,7 +50,7 @@ def run() -> int:
     results = publish_batch(articles)
 
     log.info("=" * 50)
-    log.info("STEP 4 / 4 — Sending Telegram notification")
+    log.info("STEP 4 / 5 — Sending Telegram notification")
     log.info("=" * 50)
     wp_url = os.environ.get("WP_URL", "https://waqya.com").rstrip("/")
     notify_new_drafts(results, wp_url)

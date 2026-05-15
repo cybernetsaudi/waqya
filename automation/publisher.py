@@ -1,12 +1,12 @@
 """
-WordPress publisher — posts generated articles as drafts
-via the WordPress REST API using Application Passwords.
+WordPress publisher — posts drafts with hero + inline images and SEO.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -14,6 +14,7 @@ import requests
 import yaml
 
 from generator import Article
+from image_fetcher import ArticleImages, FetchedImage
 
 log = logging.getLogger(__name__)
 
@@ -26,17 +27,13 @@ def _load_config() -> dict:
 
 
 def _wp_auth() -> tuple[str, str, str]:
-    """Return (base_url, user, app_password) from environment."""
     url = os.environ["WP_URL"].rstrip("/")
-    user = os.environ["WP_USER"]
-    password = os.environ["WP_APP_PASSWORD"]
-    return url, user, password
+    return url, os.environ["WP_USER"], os.environ["WP_APP_PASSWORD"]
 
 
 def _get_or_create_category(
     base_url: str, auth: tuple[str, str], name: str
 ) -> Optional[int]:
-    """Resolve a category name to its WP ID, creating it if needed."""
     try:
         resp = requests.get(
             f"{base_url}/wp-json/wp/v2/categories",
@@ -48,8 +45,6 @@ def _get_or_create_category(
         for cat in resp.json():
             if cat["name"].lower() == name.lower():
                 return cat["id"]
-
-        # Category doesn't exist — create it
         resp = requests.post(
             f"{base_url}/wp-json/wp/v2/categories",
             json={"name": name},
@@ -66,7 +61,6 @@ def _get_or_create_category(
 def _get_or_create_tags(
     base_url: str, auth: tuple[str, str], tag_names: list[str]
 ) -> list[int]:
-    """Resolve tag names to WP IDs, creating any that don't exist."""
     tag_ids: list[int] = []
     for name in tag_names:
         try:
@@ -82,7 +76,6 @@ def _get_or_create_tags(
                 if tag["name"].lower() == name.lower():
                     found = tag["id"]
                     break
-
             if not found:
                 resp = requests.post(
                     f"{base_url}/wp-json/wp/v2/tags",
@@ -92,20 +85,18 @@ def _get_or_create_tags(
                 )
                 resp.raise_for_status()
                 found = resp.json()["id"]
-
             tag_ids.append(found)
         except Exception:
             log.exception("Tag lookup/create failed for '%s'", name)
     return tag_ids
 
 
-def _upload_media(
+def upload_media(
     base_url: str,
     auth: tuple[str, str],
-    image,
+    image: FetchedImage,
     title: str,
-) -> Optional[int]:
-    """Upload image bytes to WordPress media library. Returns attachment ID."""
+) -> Optional[FetchedImage]:
     headers = {
         "Content-Disposition": f'attachment; filename="{image.filename}"',
         "Content-Type": image.mime_type,
@@ -116,40 +107,82 @@ def _upload_media(
             headers=headers,
             data=image.data,
             auth=auth,
-            timeout=60,
+            timeout=90,
         )
         resp.raise_for_status()
-        media_id = resp.json()["id"]
-        # Set alt text and caption (photo credit)
+        data = resp.json()
+        image.wp_media_id = data["id"]
+        image.wp_url = data.get("source_url") or data.get("guid", {}).get("rendered")
         update = {"title": title, "alt_text": image.alt_text}
         if image.credit:
             update["caption"] = image.credit
         requests.post(
-            f"{base_url}/wp-json/wp/v2/media/{media_id}",
+            f"{base_url}/wp-json/wp/v2/media/{image.wp_media_id}",
             json=update,
             auth=auth,
             timeout=15,
         )
-        return media_id
+        return image
     except Exception:
-        log.exception("Media upload failed for: %s", title)
+        log.exception("Media upload failed: %s", title)
         return None
 
 
-def _build_article_html(article: Article) -> str:
-    """Convert article body text to basic HTML with source attribution."""
-    paragraphs = [p.strip() for p in article.body.split("\n\n") if p.strip()]
-    html_parts = [f"<p>{p}</p>" for p in paragraphs]
+def _figure_html(img: FetchedImage) -> str:
+    if not img.wp_url:
+        return ""
+    cap = f"<figcaption>{img.credit}</figcaption>" if img.credit else ""
+    cls = f' class="wp-image-{img.wp_media_id}"' if img.wp_media_id else ""
+    return (
+        f'<figure class="wp-block-image size-large">'
+        f'<img src="{img.wp_url}" alt="{img.alt_text}"{cls} loading="lazy"/>'
+        f"{cap}</figure>"
+    )
 
-    # Source attribution footer
+
+def _build_article_html(article: Article, images: Optional[ArticleImages]) -> str:
+    paragraphs = [p.strip() for p in article.body.split("\n\n") if p.strip()]
+    html_parts: list[str] = []
+
+    inline_figures: list[str] = []
+    if images:
+        for img in images.inline:
+            if img.wp_url:
+                inline_figures.append(_figure_html(img))
+
+    # Insert inline images after paragraphs 2, 4, 6 (spread through article)
+    insert_at = [1, 3, 5]
+    inline_idx = 0
+    for i, para in enumerate(paragraphs):
+        html_parts.append(f"<p>{para}</p>")
+        if i in insert_at and inline_idx < len(inline_figures):
+            html_parts.append(inline_figures[inline_idx])
+            inline_idx += 1
+
+    while inline_idx < len(inline_figures):
+        html_parts.append(inline_figures[inline_idx])
+        inline_idx += 1
+
     html_parts.append(
         f'<p><em>Source: <a href="{article.source_url}" '
         f'target="_blank" rel="noopener noreferrer">'
         f"{article.source_name}</a></em></p>"
     )
-    if article.featured_image and article.featured_image.credit:
-        html_parts.append(f"<p><em>{article.featured_image.credit}</em></p>")
     return "\n\n".join(html_parts)
+
+
+def _upload_all_images(
+    base_url: str, auth: tuple[str, str], article: Article
+) -> Optional[ArticleImages]:
+    images = article.images
+    if not images:
+        return None
+
+    if images.featured:
+        upload_media(base_url, auth, images.featured, article.headline)
+    for i, img in enumerate(images.inline):
+        upload_media(base_url, auth, img, f"{article.headline} — image {i + 2}")
+    return images
 
 
 @dataclass
@@ -157,27 +190,31 @@ class PublishResult:
     post_id: int
     edit_url: str
     title: str
+    post_url: str
 
 
 def publish_draft(article: Article) -> Optional[PublishResult]:
-    """Post a single article as a WordPress draft. Returns the post ID or None."""
     base_url, user, password = _wp_auth()
     auth = (user, password)
     config = _load_config()
 
     category_map = config.get("categories", {})
-    category_name = category_map.get(article.category, config.get("default_category", "World"))
+    category_name = category_map.get(
+        article.category, config.get("default_category", "World")
+    )
     cat_id = _get_or_create_category(base_url, auth, category_name)
     tag_ids = _get_or_create_tags(base_url, auth, article.tags)
 
-    content_html = _build_article_html(article)
+    images = _upload_all_images(base_url, auth, article)
+    content_html = _build_article_html(article, images)
 
     featured_media_id = None
-    if article.featured_image:
-        featured_media_id = _upload_media(
-            base_url, auth, article.featured_image, article.headline
-        )
+    featured_url = None
+    if images and images.featured and images.featured.wp_media_id:
+        featured_media_id = images.featured.wp_media_id
+        featured_url = images.featured.wp_url
 
+    focus = article.tags[0] if article.tags else article.headline.split()[0]
     post_data = {
         "title": article.headline,
         "content": content_html,
@@ -187,6 +224,8 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
         "tags": tag_ids,
         "meta": {
             "_yoast_wpseo_metadesc": article.meta_description,
+            "_yoast_wpseo_title": article.headline[:60],
+            "_yoast_wpseo_focuskw": focus[:60],
         },
     }
     if featured_media_id:
@@ -197,21 +236,37 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
             f"{base_url}/wp-json/wp/v2/posts",
             json=post_data,
             auth=auth,
-            timeout=30,
+            timeout=60,
         )
         resp.raise_for_status()
         data = resp.json()
         post_id = data["id"]
+        post_url = data.get("link", f"{base_url}/?p={post_id}")
         edit_url = f"{base_url}/wp-admin/post.php?post={post_id}&action=edit"
         log.info("Published draft #%d: %s", post_id, article.headline)
-        return PublishResult(post_id=post_id, edit_url=edit_url, title=article.headline)
+
+        from seo import optimize_published_post
+
+        optimize_published_post(
+            post_id=post_id,
+            headline=article.headline,
+            meta_description=article.meta_description,
+            tags=article.tags,
+            content_html=content_html,
+            post_url=post_url,
+            featured_image_url=featured_url,
+            category_ids=[cat_id] if cat_id else [],
+        )
+
+        return PublishResult(
+            post_id=post_id, edit_url=edit_url, title=article.headline, post_url=post_url
+        )
     except Exception:
         log.exception("Failed to publish draft: %s", article.headline)
         return None
 
 
 def publish_batch(articles: list[Article]) -> list[PublishResult]:
-    """Publish a batch of articles as WordPress drafts."""
     results: list[PublishResult] = []
     for article in articles:
         result = publish_draft(article)
@@ -219,9 +274,3 @@ def publish_batch(articles: list[Article]) -> list[PublishResult]:
             results.append(result)
     log.info("Published %d / %d drafts", len(results), len(articles))
     return results
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    print("Publisher module loaded. Use publish_draft() or publish_batch() programmatically.")
-    print("Run pipeline.py for the full workflow.")

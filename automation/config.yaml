@@ -13,13 +13,21 @@ pipeline:
   # Pause between articles to avoid OpenAI rate limits (new accounts)
   delay_between_articles_seconds: 25
 
-# Featured images for posts
+# Images: 1 hero (featured) + inline images in article body
 images:
   enabled: true
-  # Primary provider: pexels (free) | og_image | openai (DALL-E, ~$0.04/image)
   provider: pexels
+  inline_count: 3
   fallbacks:
     - og_image
+
+# Automated SEO after each publish
+seo:
+  enabled: true
+  ping_sitemaps: true
+  add_schema: true
+  add_related_links: true
+  indexnow: false  # set true after INDEXNOW_KEY is on site root
 
 # RSS feeds to monitor (add/remove as needed)
 rss_feeds:

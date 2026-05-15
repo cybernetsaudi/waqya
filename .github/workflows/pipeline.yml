@@ -15,6 +15,7 @@ env:
   TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
   TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
   PEXELS_API_KEY:      ${{ secrets.PEXELS_API_KEY }}
+  INDEXNOW_KEY:        ${{ secrets.INDEXNOW_KEY }}
 
 jobs:
   run-pipeline:
