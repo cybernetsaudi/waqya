@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import html
 import logging
 import os
 import re
@@ -42,13 +43,15 @@ def _extract_tags(post: dict) -> list[str]:
     return []  # filled via tag endpoint if needed
 
 
-def backfill_post(post: dict, base_url: str, auth: tuple[str, str]) -> bool:
+def backfill_post(
+    post: dict, base_url: str, auth: tuple[str, str], *, skip_seo: bool = False
+) -> bool:
     from image_fetcher import fetch_article_images
     from publisher import _build_article_html, upload_media
     from seo import optimize_published_post
 
     post_id = post["id"]
-    title = post["title"]["rendered"]
+    title = html.unescape(post["title"]["rendered"])
     raw = post.get("content", {}).get("rendered", "")
     excerpt = re.sub(r"<[^>]+>", "", post.get("excerpt", {}).get("rendered", ""))[:200]
 
@@ -103,16 +106,17 @@ def backfill_post(post: dict, base_url: str, auth: tuple[str, str]) -> bool:
     post_url = resp.json().get("link", f"{base_url}/?p={post_id}")
     featured_url = images.featured.wp_url if images.featured else None
 
-    optimize_published_post(
-        post_id=post_id,
-        headline=title,
-        meta_description=meta_desc,
-        tags=tags,
-        content_html=content,
-        post_url=post_url,
-        featured_image_url=featured_url,
-        category_ids=post.get("categories", []),
-    )
+    if not skip_seo:
+        optimize_published_post(
+            post_id=post_id,
+            headline=title,
+            meta_description=meta_desc,
+            tags=tags,
+            content_html=content,
+            post_url=post_url,
+            featured_image_url=featured_url,
+            category_ids=post.get("categories", []),
+        )
     log.info("Updated post #%d with images", post_id)
     return True
 
@@ -124,6 +128,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--status", default="draft,publish", help="Comma-separated statuses")
     parser.add_argument("--ids", default="", help="Comma-separated post IDs")
+    parser.add_argument(
+        "--skip-seo", action="store_true", help="Skip SEO pass (faster backfill)"
+    )
     args = parser.parse_args()
 
     base_url, auth = _auth()
@@ -154,7 +161,7 @@ def main():
     ok = 0
     for post in posts:
         try:
-            if backfill_post(post, base_url, auth):
+            if backfill_post(post, base_url, auth, skip_seo=args.skip_seo):
                 ok += 1
         except Exception:
             log.exception("Failed post #%s", post.get("id"))

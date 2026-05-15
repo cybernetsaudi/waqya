@@ -97,18 +97,6 @@ def fetch_related_posts(
         return []
 
 
-def build_related_html(related: list[dict]) -> str:
-    if not related:
-        return ""
-    items = "".join(
-        f'<li><a href="{escape(p["link"])}">'
-        f'{escape(p["title"]["rendered"] if isinstance(p["title"], dict) else p["title"])}'
-        f"</a></li>"
-        for p in related
-    )
-    return f'<div class="waqya-related"><h3>Related on Waqya</h3><ul>{items}</ul></motion></div>'.replace(
-        "</motion></div>", "</motion></div>"
-    )
 
 
 def build_related_html(related: list[dict]) -> str:
@@ -130,10 +118,10 @@ def ping_sitemap(sitemap_url: str) -> None:
     ]
     for url in endpoints:
         try:
-            resp = requests.get(url, timeout=10)
+            resp = requests.get(url, timeout=5)
             log.info("Sitemap ping %s → %s", url.split("?")[0], resp.status_code)
         except Exception:
-            log.exception("Sitemap ping failed: %s", url)
+            log.debug("Sitemap ping skipped: %s", url.split("?")[0])
 
 
 def submit_indexnow(urls: list[str]) -> None:

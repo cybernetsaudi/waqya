@@ -58,15 +58,18 @@ Go to **Plugins → Add New** and install:
 | **WP Super Cache** or **LiteSpeed Cache** | Page caching (Hostinger uses LiteSpeed) |
 | **Akismet** | Spam protection for comments |
 
-### 3d. Choose a Theme
+### 3d. Install the Waqya Theme
 
-Go to **Appearance → Themes → Add New** and search for one of these:
+The custom editorial theme lives in this repo at `wordpress/theme/waqya/`.
 
-1. **Astra** — the most popular free WordPress theme. Fast, lightweight, and has news/magazine starter templates. **Recommended.**
-2. **GeneratePress** — performance-focused, clean design, great for content-heavy sites.
-3. Or browse the "news" / "magazine" tags in the theme directory for something more editorial.
+1. Zip the theme folder: from the repo root, run  
+   `cd wordpress/theme && zip -r waqya.zip waqya`
+2. In WordPress: **Appearance → Themes → Add New → Upload Theme**
+3. Upload `waqya.zip` and click **Activate**
+4. **Appearance → Menus** — assign a menu to **Category Navigation** (Technology, World, Science, Business, Opinion) so it matches `automation/config.yaml`
+5. **Settings → Reading** — set **Your homepage displays** to **A static page** only if you use a separate posts page; by default the theme uses `front-page.php` for the editorial homepage
 
-Pick **Astra** if unsure — it is the safest, fastest choice.
+Optional: upload a square logo under **Appearance → Customize → Site Identity**.
 
 ### 3e. Create an Application Password (for the REST API)
 

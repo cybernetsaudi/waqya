@@ -7,6 +7,7 @@ Requires PEXELS_API_KEY in .env (not .env.example).
 
 from __future__ import annotations
 
+import html
 import logging
 import os
 import re
@@ -61,6 +62,14 @@ def _pexels_key() -> str:
     return os.environ.get("PEXELS_API_KEY", "").strip()
 
 
+def _clean_query(text: str) -> str:
+    """Short, safe search string for stock photo APIs."""
+    text = html.unescape(re.sub(r"<[^>]+>", "", text))
+    text = re.sub(r"[^\w\s-]", " ", text)
+    words = [w for w in text.split() if w][:6]
+    return " ".join(words) if words else "news"
+
+
 def _expand_queries(base: str, tags: list[str], count: int) -> list[str]:
     """Build distinct search queries for multiple images."""
     queries: list[str] = []
@@ -80,8 +89,10 @@ def _expand_queries(base: str, tags: list[str], count: int) -> list[str]:
     add(f"{base} editorial")
     add(f"{base} headline")
 
-    while len(queries) < count:
-        add(f"{base} {len(queries)}")
+    n = 0
+    while len(queries) < count and n < 12:
+        n += 1
+        add(f"{base[:30]} news {n}")
     return queries[:count]
 
 
@@ -176,22 +187,28 @@ def fetch_article_images(
 
     inline_count = int(img_cfg.get("inline_count", 3))
     total_needed = 1 + inline_count
-    base = (image_query or headline).strip()
-    tag_list = tags or []
+    base = _clean_query(image_query or headline)
+    tag_list = [_clean_query(t) for t in (tags or [])]
     queries = _expand_queries(base, tag_list, total_needed)
 
     collected: list[FetchedImage] = []
+    # One Pexels request first (fast path)
+    batch = _pexels_search(base, per_page=total_needed, page=1)
+    for img in batch:
+        if len(collected) >= total_needed:
+            break
+        if not any(existing.data == img.data for existing in collected):
+            collected.append(img)
+
     for i, q in enumerate(queries):
         if len(collected) >= total_needed:
             break
-        batch = _pexels_search(q, per_page=2, page=1 + (i % 3))
+        batch = _pexels_search(q, per_page=2, page=1 + (i % 2))
         for img in batch:
             if len(collected) >= total_needed:
                 break
-            # Avoid duplicate bytes
-            if any(existing.data == img.data for existing in collected):
-                continue
-            collected.append(img)
+            if not any(existing.data == img.data for existing in collected):
+                collected.append(img)
 
     if len(collected) < total_needed:
         og = _from_og_image(source_url)
