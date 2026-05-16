@@ -1,0 +1,420 @@
+# Waqya Editorial Taxonomy v2
+# ─────────────────────────────────────────────────────────────────────────────
+# PURPOSE: Single source of truth for automation + WordPress + frontend menus.
+#
+# ARCHITECTURE (avoids menu chaos):
+#   1. primary_category — ONE per post (WordPress category, archive URL)
+#   2. region_tags      — geographic scope (WordPress tags, ISO-style names)
+#   3. topic_tags       — themes (WordPress tags; cross-cutting)
+#   4. iptc_code        — stored in post meta (international standard)
+#
+# Frontend agent: use `menu` + `primary_categories` below.
+# Regenerate JSON:  python export_categories.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: 2
+default_primary: current-affairs
+
+classification_rules: |
+  Pick exactly ONE primary_category key from primary_categories.
+  If the story is mainly about a specific region, prefer a regional primary
+  (e.g. middle-east, south-asia). If global or multi-region, prefer a topic
+  primary (e.g. war-conflict, immigration-migration, politics-government).
+  Always add 1-3 region_tags and 2-5 topic_tags when applicable.
+  Map to iptc_code from the primary's iptc_reference field.
+
+# ── Navigation structure (for theme menus — do not flatten) ─────────────────
+menu:
+  - id: news-desk
+    label: News Desk
+    items:
+      - current-affairs
+      - war-conflict
+      - politics-government
+      - diplomacy
+      - elections
+      - immigration-migration
+      - human-rights
+      - crime-justice
+      - media-disinformation
+
+  - id: regions
+    label: Regions
+    items:
+      - middle-east
+      - south-asia
+      - east-asia
+      - europe
+      - united-kingdom
+      - united-states
+      - americas
+      - africa
+      - russia-central-asia
+      - indo-pacific
+
+  - id: topics
+    label: Topics
+    items:
+      - religion-faith
+      - business-economy
+      - markets-finance
+      - technology-ai
+      - science
+      - health-medicine
+      - climate-environment
+      - energy-resources
+      - society-culture
+      - labour-work
+      - sport
+      - entertainment-arts
+      - education
+      - disasters-emergencies
+
+# ── Primary categories (WordPress category per post) ────────────────────────
+primary_categories:
+  current-affairs:
+    label: Current Affairs
+    slug: current-affairs
+    description: Breaking and developing stories of the day
+    iptc_reference: medtop:11000000
+    menu_group: news-desk
+
+  war-conflict:
+    label: War & Conflict
+    slug: war-conflict
+    description: Armed conflict, military operations, security, terrorism
+    iptc_reference: medtop:16000000
+    menu_group: news-desk
+    scrape_keywords: [war, conflict, military, troops, ceasefire, nato, ukraine, gaza]
+
+  politics-government:
+    label: Politics & Government
+    slug: politics-government
+    description: Elections, policy, governance, political parties
+    iptc_reference: medtop:11000000
+    menu_group: news-desk
+
+  diplomacy:
+    label: Diplomacy & International Relations
+    slug: diplomacy
+    description: Summits, treaties, foreign policy, alliances
+    iptc_reference: medtop:11000000
+    menu_group: news-desk
+
+  elections:
+    label: Elections
+    slug: elections
+    description: Voting, campaigns, polls, electoral systems
+    iptc_reference: medtop:11000000
+    menu_group: news-desk
+
+  immigration-migration:
+    label: Immigration & Migration
+    slug: immigration-migration
+    description: Borders, asylum, refugees, migration policy
+    iptc_reference: medtop:14000000
+    menu_group: news-desk
+    scrape_keywords: [immigration, migrant, refugee, asylum, border, deportation]
+
+  human-rights:
+    label: Human Rights
+    slug: human-rights
+    description: Civil liberties, humanitarian law, abuses, activism
+    iptc_reference: medtop:14000000
+    menu_group: news-desk
+
+  crime-justice:
+    label: Crime & Justice
+    slug: crime-justice
+    description: Courts, law enforcement, trials, organised crime
+    iptc_reference: medtop:02000000
+    menu_group: news-desk
+
+  media-disinformation:
+    label: Media & Disinformation
+    slug: media-disinformation
+    description: Propaganda, social media manipulation, press freedom
+    iptc_reference: medtop:01000000
+    menu_group: news-desk
+
+  middle-east:
+    label: Middle East
+    slug: middle-east
+    description: Israel, Palestine, Iran, Gulf states, Syria, Lebanon, Yemen
+    iptc_reference: medtop:11000000
+    menu_group: regions
+    scrape_keywords: [israel, gaza, iran, saudi, syria, lebanon, yemen, middle east]
+
+  south-asia:
+    label: South Asia
+    slug: south-asia
+    description: India, Pakistan, Bangladesh, Sri Lanka, Afghanistan, Nepal
+    iptc_reference: medtop:11000000
+    menu_group: regions
+    scrape_keywords: [india, pakistan, bangladesh, kashmir, south asia]
+
+  east-asia:
+    label: East Asia
+    slug: east-asia
+    description: China, Japan, Korea, Taiwan, Hong Kong
+    iptc_reference: medtop:11000000
+    menu_group: regions
+    scrape_keywords: [china, taiwan, japan, korea, beijing]
+
+  europe:
+    label: Europe
+    slug: europe
+    description: EU, UK-adjacent Europe, continental politics and policy
+    iptc_reference: medtop:11000000
+    menu_group: regions
+
+  united-kingdom:
+    label: United Kingdom
+    slug: united-kingdom
+    description: Britain, Northern Ireland, Westminster, devolved nations
+    iptc_reference: medtop:11000000
+    menu_group: regions
+    scrape_keywords: [uk, britain, london, westminster, labour, tory]
+
+  united-states:
+    label: United States
+    slug: united-states
+    description: US federal politics, White House, Congress, domestic policy
+    iptc_reference: medtop:11000000
+    menu_group: regions
+    scrape_keywords: [trump, biden, congress, white house, washington]
+
+  americas:
+    label: Americas
+    slug: americas
+    description: Latin America, Canada, Caribbean (excluding US desk)
+    iptc_reference: medtop:11000000
+    menu_group: regions
+
+  africa:
+    label: Africa
+    slug: africa
+    description: Sub-Saharan and North Africa, AU, regional conflicts
+    iptc_reference: medtop:11000000
+    menu_group: regions
+
+  russia-central-asia:
+    label: Russia & Central Asia
+    slug: russia-central-asia
+    description: Russia, Ukraine war theatre, Kazakhstan, Central Asian states
+    iptc_reference: medtop:16000000
+    menu_group: regions
+    scrape_keywords: [russia, ukraine, putin, kremlin, nato]
+
+  indo-pacific:
+    label: Indo-Pacific
+    slug: indo-pacific
+    description: ASEAN, Australia, Pacific islands, maritime security
+    iptc_reference: medtop:11000000
+    menu_group: regions
+
+  religion-faith:
+    label: Religion & Faith
+    slug: religion-faith
+    description: Religious institutions, interfaith, faith and politics
+    iptc_reference: medtop:12000000
+    menu_group: topics
+
+  business-economy:
+    label: Business & Economy
+    slug: business-economy
+    description: Companies, trade, economic policy, labour markets
+    iptc_reference: medtop:04000000
+    menu_group: topics
+
+  markets-finance:
+    label: Markets & Finance
+    slug: markets-finance
+    description: Stocks, banking, crypto, investment, central banks
+    iptc_reference: medtop:04000000
+    menu_group: topics
+
+  technology-ai:
+    label: Technology & AI
+    slug: technology-ai
+    description: Software, AI, cybersecurity, big tech, startups
+    iptc_reference: medtop:13000000
+    menu_group: topics
+
+  science:
+    label: Science
+    slug: science
+    description: Research, space, discoveries, academic science
+    iptc_reference: medtop:13000000
+    menu_group: topics
+
+  health-medicine:
+    label: Health & Medicine
+    slug: health-medicine
+    description: Public health, disease, healthcare systems, pharma
+    iptc_reference: medtop:07000000
+    menu_group: topics
+
+  climate-environment:
+    label: Climate & Environment
+    slug: climate-environment
+    description: Climate change, conservation, pollution, sustainability
+    iptc_reference: medtop:06000000
+    menu_group: topics
+
+  energy-resources:
+    label: Energy & Resources
+    slug: energy-resources
+    description: Oil, gas, renewables, mining, energy security
+    iptc_reference: medtop:04000000
+    menu_group: topics
+
+  society-culture:
+    label: Society & Culture
+    slug: society-culture
+    description: Social trends, identity, community, demographics
+    iptc_reference: medtop:14000000
+    menu_group: topics
+
+  labour-work:
+    label: Labour & Work
+    slug: labour-work
+    description: Unions, wages, strikes, workplace policy
+    iptc_reference: medtop:09000000
+    menu_group: topics
+
+  sport:
+    label: Sport
+    slug: sport
+    description: Competitions, athletes, governing bodies
+    iptc_reference: medtop:15000000
+    menu_group: topics
+
+  entertainment-arts:
+    label: Entertainment & Arts
+    slug: entertainment-arts
+    description: Film, music, celebrity, arts, media industry
+    iptc_reference: medtop:01000000
+    menu_group: topics
+
+  education:
+    label: Education
+    slug: education
+    description: Schools, universities, education policy
+    iptc_reference: medtop:05000000
+    menu_group: topics
+
+  disasters-emergencies:
+    label: Disasters & Emergencies
+    slug: disasters-emergencies
+    description: Earthquakes, floods, accidents, humanitarian emergencies
+    iptc_reference: medtop:03000000
+    menu_group: topics
+
+# ── Region tags (always WordPress tags, not primary categories) ─────────────
+region_tags:
+  - Middle East
+  - South Asia
+  - East Asia
+  - Southeast Asia
+  - Europe
+  - United Kingdom
+  - United States
+  - Latin America
+  - Africa
+  - Russia
+  - Ukraine
+  - China
+  - India
+  - Pakistan
+  - Israel
+  - Palestine
+  - Iran
+  - Gulf States
+  - Indo-Pacific
+  - Global
+
+# ── Topic tags (cross-cutting themes as WordPress tags) ─────────────────────
+topic_tags:
+  - War
+  - Conflict
+  - Immigration
+  - Refugees
+  - Religion
+  - Islam
+  - Christianity
+  - NATO
+  - United Nations
+  - Sanctions
+  - Elections
+  - Corruption
+  - Protest
+  - Climate Change
+  - Artificial Intelligence
+  - Cybersecurity
+  - Pandemic
+  - Humanitarian
+  - Ceasefire
+  - Nuclear
+
+# ── RSS / scrape defaults (feed slug → primary category key) ────────────────
+feed_category_map:
+  world: current-affairs
+  tech: technology-ai
+  science: science
+  business: business-economy
+  middle_east: middle-east
+  south_asia: south-asia
+  uk: united-kingdom
+  us: united-states
+  war: war-conflict
+  immigration: immigration-migration
+  religion: religion-faith
+
+# Extended RSS sources aligned to categories
+rss_feeds:
+  - name: BBC Top Stories
+    url: http://feeds.bbci.co.uk/news/rss.xml
+    category: current-affairs
+  - name: BBC UK
+    url: http://feeds.bbci.co.uk/news/uk/rss.xml
+    category: united-kingdom
+  - name: BBC Middle East
+    url: http://feeds.bbci.co.uk/news/world/middle_east/rss.xml
+    category: middle-east
+  - name: BBC Asia
+    url: http://feeds.bbci.co.uk/news/world/asia/rss.xml
+    category: south-asia
+  - name: BBC Technology
+    url: http://feeds.bbci.co.uk/news/technology/rss.xml
+    category: technology-ai
+  - name: BBC Business
+    url: http://feeds.bbci.co.uk/news/business/rss.xml
+    category: business-economy
+  - name: Al Jazeera
+    url: https://www.aljazeera.com/xml/rss/all.xml
+    category: middle-east
+  - name: TechCrunch
+    url: https://techcrunch.com/feed/
+    category: technology-ai
+  - name: The Verge
+    url: https://www.theverge.com/rss/index.xml
+    category: technology-ai
+  - name: Ars Technica
+    url: https://feeds.arstechnica.com/arstechnica/index
+    category: technology-ai
+  - name: Hacker News Best
+    url: https://hnrss.org/best
+    category: technology-ai
+
+trending:
+  reddit_subreddits:
+    - worldnews
+    - news
+    - worldpolitics
+    - MiddleEastNews
+    - india
+    - technology
+    - immigration
+    - europe
+    - ukpolitics

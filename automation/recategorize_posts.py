@@ -21,20 +21,25 @@ import requests
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from taxonomy import load_taxonomy, normalize_tags, resolve_topic, topic_catalog_for_prompt
+from taxonomy import (
+    normalize_tags,
+    primary_catalog_for_prompt,
+    resolve_primary,
+)
 
 log = logging.getLogger("recategorize")
 
-CLASSIFY_PROMPT = """You classify news articles using IPTC Media Topics (international standard).
+CLASSIFY_PROMPT = """You classify news articles using the Waqya taxonomy (IPTC-aligned).
 
-ALLOWED IPTC_TOPIC keys (pick exactly one):
+ALLOWED PRIMARY category keys (pick exactly one):
 {catalog}
 
 Given the article title and excerpt, respond with ONLY these lines:
-IPTC_TOPIC: <key>
-TAGS: <8-12 comma-separated tags: entities, places, themes, IPTC label>
+PRIMARY: <key from list>
+TAGS: <8-12 comma-separated tags>
+REGION_TAGS: <0-3 regions>
+TOPIC_TAGS: <0-4 themes e.g. War, Immigration, Religion>
 SUBJECTS: <4-8 subject keywords>
-REGIONS: <countries/cities or leave blank>
 """
 
 
@@ -106,12 +111,26 @@ def _get_tag_ids(base: str, auth: tuple[str, str], names: list[str]) -> list[int
 
 
 def _parse_classification(raw: str) -> dict:
-    fields = {"iptc_topic": "", "tags": [], "subjects": "", "regions": ""}
+    fields = {
+        "primary": "",
+        "iptc_topic": "",
+        "tags": [],
+        "subjects": "",
+        "regions": "",
+        "region_tags": "",
+        "topic_tags": "",
+    }
     for line in raw.splitlines():
         line = line.strip()
         u = line.upper()
-        if u.startswith("IPTC_TOPIC:"):
+        if u.startswith("PRIMARY:"):
+            fields["primary"] = line.split(":", 1)[1].strip()
+        elif u.startswith("IPTC_TOPIC:"):
             fields["iptc_topic"] = line.split(":", 1)[1].strip()
+        elif u.startswith("REGION_TAGS:"):
+            fields["region_tags"] = line.split(":", 1)[1].strip()
+        elif u.startswith("TOPIC_TAGS:"):
+            fields["topic_tags"] = line.split(":", 1)[1].strip()
         elif u.startswith("TAGS:"):
             fields["tags"] = [t.strip() for t in line.split(":", 1)[1].split(",") if t.strip()]
         elif u.startswith("SUBJECTS:"):
@@ -122,7 +141,7 @@ def _parse_classification(raw: str) -> dict:
 
 
 def classify_post(client: OpenAI, title: str, excerpt: str) -> dict:
-    prompt = CLASSIFY_PROMPT.format(catalog=topic_catalog_for_prompt())
+    prompt = CLASSIFY_PROMPT.format(catalog=primary_catalog_for_prompt())
     user = f"TITLE: {title}\n\nEXCERPT: {excerpt[:2000]}"
     resp = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -149,16 +168,21 @@ def recategorize_post(
     excerpt = _strip_html(post.get("excerpt", {}).get("rendered", "") or raw[:800])
 
     parsed = classify_post(client, title, excerpt)
-    topic = resolve_topic(parsed["iptc_topic"])
-    regions = [r.strip() for r in parsed["regions"].split(",") if r.strip()]
+    primary = resolve_primary(parsed.get("primary") or parsed.get("iptc_topic", ""))
+    regions = [
+        r.strip()
+        for r in (parsed.get("region_tags") or parsed.get("regions", "")).split(",")
+        if r.strip()
+    ]
+    topic_tags = [t.strip() for t in parsed.get("topic_tags", "").split(",") if t.strip()]
     subjects = [s.strip() for s in parsed["subjects"].split(",") if s.strip()]
-    tags = normalize_tags(parsed["tags"], regions=regions, max_tags=12)
-    if topic["iptc_label"] not in tags:
-        tags.insert(0, topic["iptc_label"])
+    tags = normalize_tags(parsed["tags"], regions=regions, topic_tags=topic_tags, max_tags=15)
+    if primary["label"] not in tags:
+        tags.insert(0, primary["label"])
 
-    cat_id = cat_ids.get(topic["wp_category"].lower())
+    cat_id = cat_ids.get(primary["wp_category"].lower())
     if not cat_id:
-        log.error("No WP category id for %s", topic["wp_category"])
+        log.error("No WP category id for %s", primary["wp_category"])
         return False
 
     tag_ids = _get_tag_ids(base, auth, tags)
@@ -171,11 +195,13 @@ def recategorize_post(
             "categories": [cat_id],
             "tags": tag_ids,
             "meta": {
-                "_waqya_iptc_topic": topic["topic_key"],
-                "_waqya_iptc_code": topic["iptc_code"],
-                "_waqya_iptc_label": topic["iptc_label"],
+                "_waqya_primary_category": primary["primary_key"],
+                "_waqya_iptc_topic": primary["primary_key"],
+                "_waqya_iptc_code": primary["iptc_code"],
+                "_waqya_iptc_label": primary["label"],
                 "_waqya_dc_subjects": subjects_str,
                 "_waqya_coverage": regions_str,
+                "_waqya_menu_group": primary.get("menu_group", ""),
             },
         },
         auth=auth,
@@ -185,7 +211,7 @@ def recategorize_post(
     log.info(
         "  #%d → %s | %s",
         post_id,
-        topic["wp_category"],
+        primary["wp_category"],
         title[:50],
     )
     return True

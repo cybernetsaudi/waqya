@@ -10,8 +10,13 @@ pipeline:
   max_articles_per_run: 5
   min_words: 600
   max_words: 1200
-  # Pause between articles to avoid OpenAI rate limits (new accounts)
   delay_between_articles_seconds: 25
+  # true = publish live immediately (no manual approve). false = drafts for review.
+  auto_publish: true
+
+# Taxonomy source of truth: automation/waqya_categories.yaml
+taxonomy:
+  source: waqya_categories.yaml
 
 # Images: 1 hero (featured) + inline images in article body
 images:
@@ -29,43 +34,13 @@ seo:
   add_related_links: true
   indexnow: false  # set true after INDEXNOW_KEY is on site root
 
-# RSS feeds to monitor (add/remove as needed)
-rss_feeds:
-  - name: "Reuters - World"
-    url: "https://www.rss-bridge.org/bridge01/?action=display&bridge=FilterBridge&url=https%3A%2F%2Fwww.reuters.com%2Fworld&format=Atom"
-    category: "world"
-  - name: "BBC News - Top Stories"
-    url: "http://feeds.bbci.co.uk/news/rss.xml"
-    category: "world"
-  - name: "BBC News - Technology"
-    url: "http://feeds.bbci.co.uk/news/technology/rss.xml"
-    category: "tech"
-  - name: "TechCrunch"
-    url: "https://techcrunch.com/feed/"
-    category: "tech"
-  - name: "Ars Technica"
-    url: "https://feeds.arstechnica.com/arstechnica/index"
-    category: "tech"
-  - name: "The Verge"
-    url: "https://www.theverge.com/rss/index.xml"
-    category: "tech"
-  - name: "Hacker News - Best"
-    url: "https://hnrss.org/best"
-    category: "tech"
-  - name: "Al Jazeera"
-    url: "https://www.aljazeera.com/xml/rss/all.xml"
-    category: "world"
+# RSS feeds: defined in waqya_categories.yaml when taxonomy.source is set
+rss_feeds: []
 
-# Trending topic discovery (prioritises high-interest stories)
 trending:
   enabled: true
   newsapi_top_headlines: true
   google_trends: true
-  reddit_subreddits:
-    - worldnews
-    - news
-    - technology
-    - worldpolitics
   max_keywords: 40
   search_top_queries: 3
 
@@ -90,7 +65,4 @@ openai:
   headline_temperature: 0.9
   max_tokens: 2000
 
-# Primary categories follow IPTC Media Topics — see iptc_taxonomy.yaml
-default_category: "Society"
-
-# Legacy feed slugs (mapped to IPTC in iptc_taxonomy.yaml feed_category_map)
+default_category: current-affairs

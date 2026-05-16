@@ -127,6 +127,15 @@ def fetch_trending_keywords(config: dict | None = None) -> list[tuple[str, float
     for sub in cfg.get("reddit_subreddits", ["worldnews", "news", "technology"]):
         _merge(combined, fetch_reddit_hot(sub))
 
+    try:
+        from taxonomy import get_scrape_keywords
+
+        for _key, kws in get_scrape_keywords().items():
+            for kw in kws:
+                combined[kw.lower()] += 2.0
+    except Exception:
+        pass
+
     ranked = combined.most_common(int(cfg.get("max_keywords", 40)))
     log.info("Trending keywords loaded: %d (top: %s)", len(ranked), ranked[:5])
     return [(k, float(v)) for k, v in ranked]

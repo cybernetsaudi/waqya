@@ -66,11 +66,20 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
     temperature = config.get("openai", {}).get("temperature", 0.7)
     max_tokens = config.get("openai", {}).get("max_tokens", 2000)
 
-    from taxonomy import normalize_tags, resolve_topic, topic_catalog_for_prompt
+    from taxonomy import (
+        normalize_tags,
+        primary_catalog_for_prompt,
+        region_tags_list,
+        resolve_primary,
+        topic_tags_list,
+    )
 
     commentary_prompt = _load_prompt("commentary")
-    headline_prompt = _load_prompt("headline").replace(
-        "{{IPTC_CATALOG}}", topic_catalog_for_prompt()
+    headline_prompt = (
+        _load_prompt("headline")
+        .replace("{{IPTC_CATALOG}}", primary_catalog_for_prompt())
+        .replace("{{REGION_TAGS}}", ", ".join(region_tags_list()[:25]))
+        .replace("{{TOPIC_TAGS}}", ", ".join(topic_tags_list()[:25]))
     )
 
     user_input = (
@@ -121,17 +130,27 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
     excerpt = parsed["excerpt"] or meta_desc
     image_query = parsed["image_query"]
 
-    topic = resolve_topic(
-        parsed["iptc_topic"] or parsed["category"],
+    primary = resolve_primary(
+        parsed.get("primary") or parsed.get("iptc_topic") or parsed.get("category"),
         feed_category=story.get("category"),
     )
-    regions = [r.strip() for r in parsed["regions"].split(",") if r.strip()]
-    subjects = [s.strip() for s in parsed["subjects"].split(",") if s.strip()]
-    tags = normalize_tags(parsed["tags"], regions=regions, max_tags=12)
-
-    # Ensure IPTC label and topic appear in tags for management/filtering
-    if topic["iptc_label"] not in tags:
-        tags.insert(0, topic["iptc_label"])
+    region_tags = [
+        r.strip()
+        for r in (parsed.get("region_tags") or parsed.get("regions", "")).split(",")
+        if r.strip()
+    ]
+    topic_tag_list = [
+        t.strip() for t in parsed.get("topic_tags", "").split(",") if t.strip()
+    ]
+    subjects = [s.strip() for s in parsed.get("subjects", "").split(",") if s.strip()]
+    tags = normalize_tags(
+        parsed["tags"],
+        regions=region_tags,
+        topic_tags=topic_tag_list,
+        max_tags=15,
+    )
+    if primary["label"] not in tags:
+        tags.insert(0, primary["label"])
 
     return Article(
         headline=headline,
@@ -139,17 +158,17 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         meta_description=meta_desc,
         tags=tags,
         excerpt=excerpt,
-        category=topic["topic_key"],
+        category=primary["primary_key"],
         source_title=story["title"],
         source_url=story["url"],
         source_name=story["source"],
         image_query=image_query,
-        iptc_topic=topic["topic_key"],
-        iptc_code=parsed["iptc_code"] or topic["iptc_code"],
-        iptc_label=topic["iptc_label"],
-        wp_category=topic["wp_category"],
+        iptc_topic=primary["primary_key"],
+        iptc_code=parsed.get("iptc_code") or primary["iptc_code"],
+        iptc_label=primary["label"],
+        wp_category=primary["wp_category"],
         subjects=subjects,
-        regions=regions,
+        regions=region_tags,
     )
 
 
@@ -160,11 +179,14 @@ def _parse_headline_response(raw: str) -> dict:
         "tags": [],
         "excerpt": "",
         "image_query": "",
+        "primary": "",
         "iptc_topic": "",
         "iptc_code": "",
         "category": "",
         "subjects": "",
         "regions": "",
+        "region_tags": "",
+        "topic_tags": "",
     }
     key_map = {
         "HEADLINE": "headline",
@@ -172,11 +194,14 @@ def _parse_headline_response(raw: str) -> dict:
         "TAGS": "tags",
         "EXCERPT": "excerpt",
         "IMAGE_QUERY": "image_query",
+        "PRIMARY": "primary",
         "IPTC_TOPIC": "iptc_topic",
         "IPTC_CODE": "iptc_code",
         "CATEGORY": "category",
         "SUBJECTS": "subjects",
         "REGIONS": "regions",
+        "REGION_TAGS": "region_tags",
+        "TOPIC_TAGS": "topic_tags",
     }
 
     for line in raw.splitlines():
@@ -192,8 +217,10 @@ def _parse_headline_response(raw: str) -> dict:
                     fields[key] = val
                 break
 
-    if not fields["iptc_topic"] and fields["category"]:
-        fields["iptc_topic"] = fields["category"]
+    if not fields["primary"]:
+        fields["primary"] = fields.get("iptc_topic") or fields.get("category", "")
+    if not fields["region_tags"] and fields["regions"]:
+        fields["region_tags"] = fields["regions"]
     return fields
 
 

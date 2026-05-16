@@ -24,6 +24,7 @@ from trending import (
 log = logging.getLogger(__name__)
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
+CATEGORIES_PATH = os.path.join(os.path.dirname(__file__), "waqya_categories.yaml")
 
 
 @dataclass
@@ -40,7 +41,20 @@ class Story:
 
 def load_config() -> dict:
     with open(CONFIG_PATH) as f:
-        return yaml.safe_load(f)
+        cfg = yaml.safe_load(f)
+    if cfg.get("taxonomy", {}).get("source") == "waqya_categories.yaml":
+        import os as _os
+
+        cat_path = CATEGORIES_PATH
+        if _os.path.isfile(cat_path):
+            with open(cat_path) as cf:
+                cat = yaml.safe_load(cf)
+            cfg["rss_feeds"] = cat.get("rss_feeds", cfg.get("rss_feeds", []))
+            cfg["feed_category_map"] = cat.get("feed_category_map", {})
+            if cat.get("trending"):
+                base_t = cfg.get("trending", {})
+                cfg["trending"] = {**base_t, **cat["trending"]}
+    return cfg
 
 
 def _fetch_rss(feed_url: str, feed_name: str, category: str) -> list[Story]:

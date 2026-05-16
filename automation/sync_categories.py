@@ -16,7 +16,9 @@ import sys
 import requests
 from dotenv import load_dotenv
 
-from taxonomy import load_taxonomy
+import html as html_module
+
+from taxonomy import load_categories
 
 log = logging.getLogger("sync_categories")
 
@@ -31,10 +33,9 @@ def _slugify(text: str) -> str:
 def sync_all() -> int:
     base = os.environ["WP_URL"].rstrip("/")
     auth = (os.environ["WP_USER"], os.environ["WP_APP_PASSWORD"])
-    tax = load_taxonomy()
+    data = load_categories()
     created = 0
 
-    # Fetch existing categories
     existing: dict[str, dict] = {}
     page = 1
     while True:
@@ -49,20 +50,22 @@ def sync_all() -> int:
         if not batch:
             break
         for cat in batch:
-            existing[cat["name"].lower()] = cat
+            name = html_module.unescape(cat["name"]).strip()
+            existing[name.lower()] = cat
         page += 1
         if len(batch) < 100:
             break
 
     log.info("Found %d existing WordPress categories", len(existing))
 
-    for key, topic in tax.get("topics", {}).items():
-        name = topic["wp_category"]
-        slug = _slugify(key.replace("_", "-"))
+    for key, cat in data.get("primary_categories", {}).items():
+        name = cat["label"]
+        slug = cat.get("slug") or _slugify(key.replace("_", "-"))
         desc = (
-            f"IPTC {topic['iptc_code']} — {topic['label']}. "
-            f"{topic.get('description', '')}"
-        )
+            f"{cat.get('description', '')} "
+            f"[{cat.get('menu_group', '')}] "
+            f"IPTC ref: {cat.get('iptc_reference', '')}"
+        ).strip()
 
         if name.lower() in existing:
             cat_id = existing[name.lower()]["id"]
@@ -111,7 +114,7 @@ def main() -> int:
         log.error("WP_URL not set in .env")
         return 1
 
-    log.info("Syncing IPTC categories to %s …\n", os.environ["WP_URL"])
+    log.info("Syncing Waqya primary categories to %s …\n", os.environ["WP_URL"])
     n = sync_all()
     log.info("\nDone. %d new categories created.", n)
     log.info("View in WP Admin → Posts → Categories")

@@ -33,22 +33,26 @@ def _wp_auth() -> tuple[str, str, str]:
 
 
 def _get_or_create_category(
-    base_url: str, auth: tuple[str, str], name: str
+    base_url: str, auth: tuple[str, str], name: str, slug: str = ""
 ) -> Optional[int]:
     try:
         resp = requests.get(
             f"{base_url}/wp-json/wp/v2/categories",
-            params={"search": name, "per_page": 5},
+            params={"search": name, "per_page": 20},
             auth=auth,
             timeout=15,
         )
         resp.raise_for_status()
         for cat in resp.json():
-            if html_module.unescape(cat["name"]).lower() == name.lower():
+            decoded = html_module.unescape(cat["name"])
+            if decoded.lower() == name.lower() or (slug and cat.get("slug") == slug):
                 return cat["id"]
+        payload: dict[str, str] = {"name": name}
+        if slug:
+            payload["slug"] = slug
         resp = requests.post(
             f"{base_url}/wp-json/wp/v2/categories",
-            json={"name": name},
+            json=payload,
             auth=auth,
             timeout=15,
         )
@@ -199,8 +203,12 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
     auth = (user, password)
     config = _load_config()
 
-    category_name = article.wp_category or config.get("default_category", "Society")
-    cat_id = _get_or_create_category(base_url, auth, category_name)
+    from taxonomy import resolve_primary
+
+    primary = resolve_primary(article.category or article.iptc_topic)
+    cat_name = article.wp_category or primary["label"]
+    cat_slug = primary["slug"]
+    cat_id = _get_or_create_category(base_url, auth, cat_name, cat_slug)
     tag_ids = _get_or_create_tags(base_url, auth, article.tags)
 
     images = _upload_all_images(base_url, auth, article)
@@ -220,10 +228,12 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
     subjects_str = ", ".join(article.subjects) if article.subjects else ""
     regions_str = ", ".join(article.regions) if article.regions else ""
 
+    post_status = "publish" if config.get("pipeline", {}).get("auto_publish", False) else "draft"
+
     post_data = {
         "title": article.headline,
         "content": content_html,
-        "status": "draft",
+        "status": post_status,
         "excerpt": article.excerpt,
         "categories": [cat_id] if cat_id else [],
         "tags": tag_ids,
@@ -231,11 +241,13 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
             "_yoast_wpseo_metadesc": article.meta_description,
             "_yoast_wpseo_title": article.headline[:60],
             "_yoast_wpseo_focuskw": focus[:60],
+            "_waqya_primary_category": article.category,
             "_waqya_iptc_topic": article.iptc_topic,
             "_waqya_iptc_code": article.iptc_code,
             "_waqya_iptc_label": article.iptc_label,
             "_waqya_dc_subjects": subjects_str,
             "_waqya_coverage": regions_str,
+            "_waqya_menu_group": primary.get("menu_group", ""),
         },
     }
     if featured_media_id:
@@ -253,7 +265,7 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
         post_id = data["id"]
         post_url = data.get("link", f"{base_url}/?p={post_id}")
         edit_url = f"{base_url}/wp-admin/post.php?post={post_id}&action=edit"
-        log.info("Published draft #%d: %s", post_id, article.headline)
+        log.info("Published %s #%d: %s", post_status, post_id, article.headline)
 
         from seo import optimize_published_post
 
