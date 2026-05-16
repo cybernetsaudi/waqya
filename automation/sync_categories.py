@@ -86,6 +86,17 @@ def sync_all() -> int:
             cat_id = resp.json()["id"]
             log.info("  + created: %s (id=%d, slug=%s)", name, cat_id, slug)
             created += 1
+        elif resp.status_code == 400:
+            data = resp.json()
+            if data.get("code") == "term_exists":
+                tid = data.get("data", {}).get("term_id") or (
+                    data.get("additional_data", [None])[0]
+                )
+                if tid:
+                    existing[name.lower()] = {"id": tid, "name": name}
+                    log.info("  ✓ exists: %s (id=%d)", name, tid)
+            else:
+                log.error("  ! failed: %s — %s", name, resp.text[:200])
         else:
             log.error("  ! failed: %s — %s", name, resp.text[:200])
 

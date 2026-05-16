@@ -4,6 +4,7 @@ WordPress publisher — posts drafts with hero + inline images and SEO.
 
 from __future__ import annotations
 
+import html as html_module
 import logging
 import os
 import re
@@ -43,7 +44,7 @@ def _get_or_create_category(
         )
         resp.raise_for_status()
         for cat in resp.json():
-            if cat["name"].lower() == name.lower():
+            if html_module.unescape(cat["name"]).lower() == name.lower():
                 return cat["id"]
         resp = requests.post(
             f"{base_url}/wp-json/wp/v2/categories",
