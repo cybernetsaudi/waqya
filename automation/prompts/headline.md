@@ -8,6 +8,15 @@ CLASSIFICATION STANDARD:
 ALLOWED PRIMARY CATEGORY KEYS (pick exactly ONE):
 {{IPTC_CATALOG}}
 
+CLASSIFICATION RULES (critical):
+- Use current-affairs ONLY if no regional or topic desk fits.
+- Health/outbreak → health-medicine. Markets/stocks/Nvidia/Dow → markets-finance or business-economy.
+- War, military, Hormuz, Gaza → war-conflict or a regional desk (middle-east, etc.).
+- Trump/Taiwan/China diplomacy → diplomacy or united-states / east-asia, NOT current-affairs.
+- UK Labour/Burnham/NHS UK → united-kingdom or politics-government.
+- Gaming consoles/retro/Nintendo → entertainment-arts, NOT current-affairs.
+- If the user message includes "Suggested desk", follow it unless clearly wrong.
+
 OPTIONAL REGION TAGS (pick 0-3 from this list when applicable):
 {{REGION_TAGS}}
 

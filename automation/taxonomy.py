@@ -41,9 +41,83 @@ def topic_tags_list() -> list[str]:
     return list(load_categories().get("topic_tags", []))
 
 
+def _keyword_in_text(keyword: str, text: str) -> bool:
+    """Match whole words/phrases only (avoids 'war' in 'hantavirus')."""
+    k = keyword.lower().strip()
+    if not k:
+        return False
+    if " " in k:
+        return k in text
+    return re.search(rf"\b{re.escape(k)}\b", text) is not None
+
+
+def suggest_primary_from_story(
+    title: str,
+    summary: str = "",
+    feed_category: str | None = None,
+) -> str:
+    """
+    Rule-based primary desk from keywords + feed hint.
+    Prefer specific desks over current-affairs.
+    """
+    data = load_categories()
+    primaries = data.get("primary_categories", {})
+    text = f"{title} {summary}".lower()
+
+    scores: dict[str, float] = {}
+    for key, cat in primaries.items():
+        if key == "current-affairs":
+            continue
+        score = 0.0
+        for kw in cat.get("scrape_keywords", []):
+            if _keyword_in_text(kw, text):
+                score += 2.0 if " " in kw else 1.0
+        label = cat.get("label", "").lower()
+        if label and _keyword_in_text(label, text):
+            score += 1.5
+        if score > 0:
+            scores[key] = score
+
+    if feed_category:
+        fc = feed_category.strip().lower()
+        if fc in primaries and fc != "current-affairs":
+            scores[fc] = scores.get(fc, 0) + 2.0
+        mapped = data.get("feed_category_map", {}).get(fc)
+        if mapped and mapped in primaries and mapped != "current-affairs":
+            scores[mapped] = scores.get(mapped, 0) + 1.5
+
+    if scores:
+        return max(scores, key=scores.get)
+
+    # Obvious cross-cutting signals when keywords miss
+    signals: list[tuple[str, tuple[str, ...]]] = [
+        ("war-conflict", ("war ", " airstrike", "missile", "ceasefire", "military", "invasion")),
+        ("immigration-migration", ("immigrant", "migration", "asylum", "deportation", "border")),
+        ("markets-finance", ("stock", "dow ", "nasdaq", "shares", "earnings", "ipo")),
+        ("technology-ai", ("nvidia", "openai", "artificial intelligence", "semiconductor", "startup")),
+        ("health-medicine", ("virus", "disease", "outbreak", "hospital", "vaccine", "cdc")),
+        ("elections", ("election", "ballot", "by-election", "campaign", "poll")),
+        ("diplomacy", ("diplomat", "summit", "sanctions", "treaty", "strait of")),
+        ("sport", ("football", "cricket", "championship", "premier league", "olympic")),
+        ("entertainment-arts", ("gaming", "nintendo", "playstation", "xbox", "console", "film")),
+    ]
+    for key, phrases in signals:
+        if any(p in text for p in phrases):
+            return key
+
+    if feed_category:
+        mapped = data.get("feed_category_map", {}).get(feed_category.strip().lower())
+        if mapped and mapped in primaries:
+            return mapped
+
+    return data.get("default_primary", "current-affairs")
+
+
 def resolve_primary(
     primary_key: str,
     feed_category: str | None = None,
+    title: str | None = None,
+    summary: str | None = None,
 ) -> dict:
     """Return primary category record for WordPress + meta."""
     data = load_categories()
@@ -60,6 +134,9 @@ def resolve_primary(
         mapped = data.get("feed_category_map", {}).get(feed_category.strip().lower())
         if mapped and mapped in primaries:
             key = mapped
+
+    if key not in primaries and (title or summary):
+        key = suggest_primary_from_story(title or "", summary or "", feed_category)
 
     if key not in primaries:
         key = data.get("default_primary", "current-affairs")

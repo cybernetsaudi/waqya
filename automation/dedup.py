@@ -36,6 +36,32 @@ def fingerprint(title: str, url: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
+def recent_titles(max_age_days: int = 14, limit: int = 200) -> list[str]:
+    """Titles processed recently (for similar-event detection)."""
+    cutoff = time.time() - (max_age_days * 86400)
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT title FROM seen_stories WHERE seen_at >= ? ORDER BY seen_at DESC LIMIT ?",
+        (cutoff, limit),
+    ).fetchall()
+    conn.close()
+    return [r[0] for r in rows if r[0]]
+
+
+def is_similar_event(title: str, summary: str = "", threshold: float = 0.38) -> bool:
+    """True if title overlaps a recently processed story cluster."""
+    try:
+        from story_diversity import cluster_key, clusters_match
+    except ImportError:
+        return False
+
+    ck = cluster_key(title, summary)
+    for prev in recent_titles():
+        if clusters_match(ck, cluster_key(prev), threshold):
+            return True
+    return False
+
+
 def is_seen(title: str, url: str) -> bool:
     conn = _connect()
     fp = fingerprint(title, url)
@@ -43,7 +69,9 @@ def is_seen(title: str, url: str) -> bool:
         "SELECT 1 FROM seen_stories WHERE fingerprint = ?", (fp,)
     ).fetchone()
     conn.close()
-    return row is not None
+    if row is not None:
+        return True
+    return is_similar_event(title)
 
 
 def mark_seen(title: str, url: str, source: str) -> None:

@@ -1,7 +1,7 @@
 {
   "version": 2,
   "default_primary": "current-affairs",
-  "classification_rules": "Pick exactly ONE primary_category key from primary_categories.\nIf the story is mainly about a specific region, prefer a regional primary\n(e.g. middle-east, south-asia). If global or multi-region, prefer a topic\nprimary (e.g. war-conflict, immigration-migration, politics-government).\nAlways add 1-3 region_tags and 2-5 topic_tags when applicable.\nMap to iptc_code from the primary's iptc_reference field.\n",
+  "classification_rules": "Pick exactly ONE primary_category key from primary_categories.\nNEVER default to current-affairs when a specific desk fits.\nIf the story is mainly about a specific region, prefer a regional primary\n(e.g. middle-east, south-asia). If global or multi-region, prefer a topic\nprimary (e.g. war-conflict, immigration-migration, politics-government).\nHealth/virus/CDC → health-medicine. Stocks/Nvidia/Dow → markets-finance.\nGaming/retro consoles → entertainment-arts. UK politics → united-kingdom.\nAlways add 1-3 region_tags and 2-5 topic_tags when applicable.\nMap to iptc_code from the primary's iptc_reference field.\n",
   "menu": [
     {
       "id": "news-desk",
@@ -272,7 +272,18 @@
       "slug": "markets-finance",
       "description": "Stocks, banking, crypto, investment, central banks",
       "iptc_reference": "medtop:04000000",
-      "menu_group": "topics"
+      "menu_group": "topics",
+      "scrape_keywords": [
+        "stock",
+        "market",
+        "dow",
+        "nasdaq",
+        "nvidia",
+        "shares",
+        "earnings",
+        "ipo",
+        "trading"
+      ]
     },
     "technology-ai": {
       "label": "Technology & AI",
@@ -293,7 +304,19 @@
       "slug": "health-medicine",
       "description": "Public health, disease, healthcare systems, pharma",
       "iptc_reference": "medtop:07000000",
-      "menu_group": "topics"
+      "menu_group": "topics",
+      "scrape_keywords": [
+        "health",
+        "disease",
+        "virus",
+        "outbreak",
+        "hospital",
+        "vaccine",
+        "cdc",
+        "who",
+        "pandemic",
+        "hantavirus"
+      ]
     },
     "climate-environment": {
       "label": "Climate & Environment",
@@ -335,7 +358,18 @@
       "slug": "entertainment-arts",
       "description": "Film, music, celebrity, arts, media industry",
       "iptc_reference": "medtop:01000000",
-      "menu_group": "topics"
+      "menu_group": "topics",
+      "scrape_keywords": [
+        "gaming",
+        "nintendo",
+        "playstation",
+        "xbox",
+        "console",
+        "retro",
+        "film",
+        "music",
+        "game"
+      ]
     },
     "education": {
       "label": "Education",

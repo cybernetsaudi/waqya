@@ -2,7 +2,7 @@
 
 site:
   name: "Waqya"
-  tagline: "AI-Powered News Commentary"
+  tagline: "The incident is the story. We unpack what happened—and what it means next."
   url: "https://waqya.com"
 
 # How many articles to generate per pipeline run
@@ -13,6 +13,17 @@ pipeline:
   delay_between_articles_seconds: 25
   # true = publish live immediately (no manual approve). false = drafts for review.
   auto_publish: true
+  # Spread stories across desks; block duplicate topic clusters (Hantavirus ×8, etc.)
+  diversity:
+    enabled: true
+    max_per_cluster_per_run: 1
+    max_per_primary_per_run: 2
+    min_distinct_primaries_per_run: 3
+    cluster_overlap_threshold: 0.38
+    recent_hours: 72
+    trending_score_cap: 8.0
+    saturation_penalty: 12.0
+    primary_daily_cap: 2
 
 # Taxonomy source of truth: automation/waqya_categories.yaml
 taxonomy:
@@ -42,7 +53,8 @@ trending:
   newsapi_top_headlines: true
   google_trends: true
   max_keywords: 40
-  search_top_queries: 3
+  # Fewer trending searches = less echo on one phrase (e.g. "hantavirus cruise")
+  search_top_queries: 1
 
 # NewsAPI settings (supplements RSS)
 newsapi:

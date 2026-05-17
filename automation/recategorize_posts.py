@@ -25,6 +25,7 @@ from taxonomy import (
     normalize_tags,
     primary_catalog_for_prompt,
     resolve_primary,
+    suggest_primary_from_story,
 )
 
 log = logging.getLogger("recategorize")
@@ -168,7 +169,16 @@ def recategorize_post(
     excerpt = _strip_html(post.get("excerpt", {}).get("rendered", "") or raw[:800])
 
     parsed = classify_post(client, title, excerpt)
-    primary = resolve_primary(parsed.get("primary") or parsed.get("iptc_topic", ""))
+    suggested = suggest_primary_from_story(title, excerpt)
+    primary = resolve_primary(
+        parsed.get("primary") or parsed.get("iptc_topic") or suggested,
+        title=title,
+        summary=excerpt,
+    )
+    if primary["primary_key"] == "current-affairs" and suggested != "current-affairs":
+        alt = resolve_primary(suggested, title=title, summary=excerpt)
+        if alt["primary_key"] != "current-affairs":
+            primary = alt
     regions = [
         r.strip()
         for r in (parsed.get("region_tags") or parsed.get("regions", "")).split(",")

@@ -15,6 +15,8 @@ import requests
 import yaml
 
 from dedup import is_seen, mark_seen
+from story_diversity import load_diversity_config, select_diverse_stories
+from taxonomy import suggest_primary_from_story
 from trending import (
     fetch_newsapi_for_query,
     fetch_trending_keywords,
@@ -220,10 +222,16 @@ def gather_trending_queries(config: dict, trending: list[tuple[str, float]]) -> 
     return stories
 
 
-def _rank_stories(stories: list[Story], trending: list[tuple[str, float]]) -> list[Story]:
+def _rank_stories(
+    stories: list[Story],
+    trending: list[tuple[str, float]],
+    config: dict,
+) -> list[Story]:
+    div = load_diversity_config(config)
     for s in stories:
         text = f"{s.title} {s.summary}"
         s.trend_score += score_story_text(text, trending)
+        s.trend_score = min(s.trend_score, div.trending_score_cap)
     return sorted(stories, key=lambda x: x.trend_score, reverse=True)
 
 
@@ -256,23 +264,37 @@ def gather(max_new: int | None = None) -> list[dict]:
     raw = _dedupe_stories(raw)
     log.info("Total unique stories: %d", len(raw))
 
-    ranked = _rank_stories(raw, trending)
+    ranked = _rank_stories(raw, trending, config)
     if ranked[:3]:
         log.info(
             "Top trend matches: %s",
             [(s.title[:40], round(s.trend_score, 1)) for s in ranked[:3]],
         )
 
-    new_stories: list[dict] = []
-    for story in ranked:
-        if is_seen(story.title, story.url):
-            continue
-        mark_seen(story.title, story.url, story.source)
-        new_stories.append(asdict(story))
-        if len(new_stories) >= max_new:
-            break
+    candidates = [asdict(s) for s in ranked]
+    for c in candidates:
+        c["suggested_primary"] = suggest_primary_from_story(
+            c.get("title", ""),
+            c.get("summary", ""),
+            c.get("category"),
+        )
 
-    log.info("New stories after dedup (trend-ranked): %d", len(new_stories))
+    def _eligible(title: str, url: str) -> bool:
+        return not is_seen(title, url)
+
+    picked = select_diverse_stories(
+        candidates,
+        max_new,
+        config,
+        is_seen_fn=_eligible,
+    )
+
+    new_stories: list[dict] = []
+    for story in picked:
+        mark_seen(story["title"], story["url"], story["source"])
+        new_stories.append(story)
+
+    log.info("New stories after diversity selection: %d", len(new_stories))
     return new_stories
 
 

@@ -82,13 +82,20 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         .replace("{{TOPIC_TAGS}}", ", ".join(topic_tags_list()[:25]))
     )
 
+    from taxonomy import suggest_primary_from_story
+
+    suggested_primary = story.get("suggested_primary") or suggest_primary_from_story(
+        story["title"], story.get("summary", ""), story.get("category")
+    )
+
     user_input = (
         f"NEWS STORY\n"
         f"Title: {story['title']}\n"
         f"Source: {story['source']}\n"
         f"Summary: {story['summary']}\n"
         f"URL: {story['url']}\n"
-        f"Published: {story.get('published', 'Unknown')}"
+        f"Published: {story.get('published', 'Unknown')}\n"
+        f"Suggested desk (editorial section): {suggested_primary}"
     )
 
     # Step 1: Generate the article body
@@ -130,10 +137,18 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
     excerpt = parsed["excerpt"] or meta_desc
     image_query = parsed["image_query"]
 
+    suggested = story.get("suggested_primary") or story.get("_suggested_primary")
     primary = resolve_primary(
-        parsed.get("primary") or parsed.get("iptc_topic") or parsed.get("category"),
+        parsed.get("primary") or suggested or parsed.get("iptc_topic") or parsed.get("category"),
         feed_category=story.get("category"),
+        title=story.get("title", ""),
+        summary=story.get("summary", ""),
     )
+    # Avoid catch-all desk when a specific desk fits the story
+    if primary["primary_key"] == "current-affairs" and suggested and suggested != "current-affairs":
+        alt = resolve_primary(suggested, feed_category=story.get("category"))
+        if alt["primary_key"] != "current-affairs":
+            primary = alt
     region_tags = [
         r.strip()
         for r in (parsed.get("region_tags") or parsed.get("regions", "")).split(",")
