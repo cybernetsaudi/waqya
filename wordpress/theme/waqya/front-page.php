@@ -1,118 +1,69 @@
 <?php
 /**
- * Front page — editorial homepage
+ * Homepage — hero slider, brand note, desk sections
  *
  * @package Waqya
  */
 
 get_header();
 
-$exclude   = waqya_excluded_post_ids();
-$shown_ids = [];
-
-$lead = new WP_Query([
-    'post_type'           => 'post',
-    'post_status'         => 'publish',
-    'posts_per_page'      => 1,
-    'post__not_in'        => $exclude,
-    'ignore_sticky_posts' => true,
-]);
-
-$grid_args = [
-    'post_type'           => 'post',
-    'post_status'         => 'publish',
-    'posts_per_page'      => 6,
-    'post__not_in'        => $exclude,
-    'ignore_sticky_posts' => true,
-];
+$exclude  = waqya_excluded_post_ids();
+$used_ids = [];
 ?>
 
-<div class="home-layout">
-    <?php if ($lead->have_posts()) : ?>
-        <section class="home-hero" aria-label="<?php esc_attr_e('Lead story', 'waqya'); ?>">
-            <?php
-            while ($lead->have_posts()) {
-                $lead->the_post();
-                $shown_ids[] = get_the_ID();
-                get_template_part('template-parts/content', 'hero');
-            }
-            wp_reset_postdata();
-            ?>
-        </section>
-    <?php endif; ?>
+<div class="home-page">
+    <div class="home-page__hero">
+        <?php
+        $slider_ids = waqya_render_post_slider([
+            'posts_per_page' => 5,
+            'post__not_in'   => $exclude,
+            'title'          => __('Top stories', 'waqya'),
+        ]);
+        $used_ids = array_merge($used_ids, $slider_ids);
 
-    <?php
-    $grid_args['post__not_in'] = array_merge($exclude, $shown_ids);
-    $grid = new WP_Query($grid_args);
-    ?>
+        if ($slider_ids === []) {
+            get_template_part('template-parts/content', 'none');
+        }
+        ?>
+    </div>
 
-    <?php if ($grid->have_posts()) : ?>
-        <section class="home-latest">
-            <header class="section-header">
-                <h2 class="section-header__title"><?php esc_html_e('Latest analysis', 'waqya'); ?></h2>
-            </header>
-            <div class="post-grid post-grid--count-<?php echo esc_attr((string) min($grid->post_count, 3)); ?>">
-                <?php
-                while ($grid->have_posts()) {
-                    $grid->the_post();
-                    get_template_part('template-parts/content', 'card');
-                }
-                wp_reset_postdata();
-                ?>
-            </div>
-        </section>
-    <?php elseif (empty($shown_ids)) : ?>
-        <?php get_template_part('template-parts/content', 'none'); ?>
-    <?php endif; ?>
-
-    <?php
-    $published = (int) wp_count_posts('post')->publish;
-    $show_sections = $published >= 6;
-
-    if ($show_sections) :
-        $sections = [
-            'technology' => __('Technology', 'waqya'),
-            'world'      => __('World', 'waqya'),
-            'science'    => __('Science', 'waqya'),
-            'business'   => __('Business', 'waqya'),
-            'opinion'    => __('Opinion', 'waqya'),
-        ];
-
-        foreach ($sections as $slug => $label) :
-            $cat = get_category_by_slug($slug);
-            if (! $cat) {
+    <div class="home-page__sections">
+        <?php
+        $pool = array_merge($exclude, $used_ids);
+        foreach (waqya_menu_groups() as $group) {
+            $group_id = (string) ($group['id'] ?? '');
+            $label    = (string) ($group['label'] ?? $group_id);
+            if ($group_id === '') {
                 continue;
             }
+            $shown    = waqya_render_home_menu_group($group_id, $label, $pool, 4);
+            $used_ids = array_merge($used_ids, $shown);
+            $pool     = array_merge($pool, $shown);
+        }
 
-            $section_query = new WP_Query([
-                'cat'            => $cat->term_id,
-                'posts_per_page' => 3,
-                'post_status'    => 'publish',
-                'post__not_in'   => array_merge($exclude, $shown_ids),
-            ]);
+        $latest = waqya_home_query([
+            'posts_per_page' => 8,
+            'post__not_in'   => array_unique(array_merge($exclude, $used_ids)),
+        ]);
 
-            if ($section_query->post_count < 2) {
-                continue;
-            }
+        if ($latest->have_posts()) :
             ?>
-            <section class="home-section home-section--<?php echo esc_attr($slug); ?>">
-                <header class="section-header">
-                    <h2 class="section-header__title">
-                        <a href="<?php echo esc_url(get_category_link($cat)); ?>"><?php echo esc_html($label); ?></a>
-                    </h2>
+            <section class="home-section home-section--latest">
+                <header class="home-section__header">
+                    <h2 class="home-section__title"><?php esc_html_e('Latest analysis', 'waqya'); ?></h2>
                 </header>
-                <div class="post-grid post-grid--compact">
+                <div class="home-section__grid">
                     <?php
-                    while ($section_query->have_posts()) {
-                        $section_query->the_post();
+                    while ($latest->have_posts()) {
+                        $latest->the_post();
                         get_template_part('template-parts/content', 'card');
                     }
                     wp_reset_postdata();
                     ?>
                 </div>
             </section>
-        <?php endforeach; ?>
-    <?php endif; ?>
+        <?php endif; ?>
+    </div>
 </div>
 
 <?php

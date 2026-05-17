@@ -14,6 +14,16 @@ cd automation && python export_categories.py
 1. **One primary category per post** — drives archive URL and breadcrumb.
 2. **Menu uses `menu` groups** — never dump all 35 categories in one flat list.
 3. **Regions/topics** are also **tags** on posts — use for filters, not top-level nav (unless a “Regions” mega-menu).
+4. **Hero sliders** — homepage and every `/category/{slug}/` archive show the 5 most recent posts in a slider (not a single oversized lead image). Slider post IDs are excluded from the archive grid on page 1.
+
+## Theme implementation
+
+| Piece | Location |
+|-------|----------|
+| JSON loader | `inc/taxonomy-config.php` |
+| Grouped nav | `template-parts/nav/menu-groups.php` |
+| Post slider | `template-parts/slider/`, `inc/slider.php`, `assets/css/slider.css` |
+| Homepage sections | One card grid per menu group (News Desk, Regions, Topics) |
 
 ## Menu structure (3 groups)
 

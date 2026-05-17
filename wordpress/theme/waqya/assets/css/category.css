@@ -1,0 +1,199 @@
+/* ==========================================================================
+   Category section archives
+   ========================================================================== */
+
+.category-page {
+  width: 100%;
+  max-width: 100%;
+  padding: 0 var(--site-gutter) var(--space-10);
+}
+
+.category-page__header {
+  padding: var(--space-5) 0 var(--space-6);
+  margin-bottom: var(--space-6);
+  border-bottom: 2px solid var(--color-ink);
+}
+
+.category-page__eyebrow {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.category-page__title {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+
+.category-page__description {
+  margin: 0 0 var(--space-3);
+  max-width: 42rem;
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  color: var(--color-ink-muted);
+}
+
+.category-page__count {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-ink-subtle);
+}
+
+.category-page__hero {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: var(--space-2);
+}
+
+/* Date period filter (category + archives) */
+.date-filter {
+  margin: 0 0 var(--space-6);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.date-filter__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.date-filter__label {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.date-filter__active {
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-accent);
+}
+
+.date-filter__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.date-filter__pill {
+  display: inline-block;
+  padding: 0.4rem 0.85rem;
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-ink-muted);
+  text-decoration: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+
+.date-filter__pill:hover {
+  color: var(--color-ink);
+  border-color: var(--color-border-strong);
+}
+
+.date-filter__pill.is-active {
+  color: var(--color-surface);
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
+.page-header__count {
+  margin: var(--space-2) 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-ink-subtle);
+}
+
+.category-page__grid-wrap {
+  margin-bottom: var(--space-8);
+}
+
+.category-page__grid-title {
+  margin: 0 0 var(--space-5);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.category-page__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+}
+
+@media (min-width: 640px) {
+  .category-page__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-6);
+  }
+}
+
+@media (min-width: 1024px) {
+  .category-page__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.category-page__empty {
+  padding: var(--space-10) 0;
+  text-align: center;
+}
+
+.category-page__empty-hint {
+  margin: var(--space-4) auto 0;
+  max-width: 28rem;
+  font-size: 0.9375rem;
+  color: var(--color-ink-muted);
+}
+
+/* Section accent borders */
+.category-page--world .category-page__header {
+  border-bottom-color: var(--color-ink);
+}
+
+.category-page--technology .category-page__eyebrow {
+  color: #2563eb;
+}
+
+.category-page--science .category-page__eyebrow {
+  color: #059669;
+}
+
+.category-page--business .category-page__eyebrow {
+  color: #b45309;
+}
+
+.category-page--opinion .category-page__eyebrow {
+  color: #7c3aed;
+}

@@ -11,12 +11,19 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('WAQYA_VERSION', '1.2.0');
+define('WAQYA_VERSION', '1.6.2');
 define('WAQYA_DIR', get_template_directory());
 define('WAQYA_URI', get_template_directory_uri());
 
 require_once WAQYA_DIR . '/inc/helpers.php';
 require_once WAQYA_DIR . '/inc/template-tags.php';
+require_once WAQYA_DIR . '/inc/sidebar.php';
+require_once WAQYA_DIR . '/inc/home.php';
+require_once WAQYA_DIR . '/inc/categories.php';
+require_once WAQYA_DIR . '/inc/brand.php';
+require_once WAQYA_DIR . '/inc/taxonomy-config.php';
+require_once WAQYA_DIR . '/inc/slider.php';
+require_once WAQYA_DIR . '/inc/date-filter.php';
 
 /**
  * Theme setup.
@@ -86,6 +93,20 @@ function waqya_scripts(): void
 
     wp_enqueue_style('waqya-main', WAQYA_URI . '/assets/css/main.css', ['waqya-fonts'], WAQYA_VERSION);
     wp_enqueue_script('waqya-main', WAQYA_URI . '/assets/js/main.js', [], WAQYA_VERSION, true);
+    wp_enqueue_script('waqya-nav-groups', WAQYA_URI . '/assets/js/nav-groups.js', ['waqya-main'], WAQYA_VERSION, true);
+
+    if (is_front_page() || is_category()) {
+        wp_enqueue_style('waqya-slider', WAQYA_URI . '/assets/css/slider.css', ['waqya-main'], WAQYA_VERSION);
+        wp_enqueue_script('waqya-slider', WAQYA_URI . '/assets/js/slider.js', [], WAQYA_VERSION, true);
+    }
+
+    if (is_front_page()) {
+        wp_enqueue_style('waqya-home', WAQYA_URI . '/assets/css/home.css', ['waqya-main'], WAQYA_VERSION);
+    }
+
+    if (is_category()) {
+        wp_enqueue_style('waqya-category', WAQYA_URI . '/assets/css/category.css', ['waqya-main'], WAQYA_VERSION);
+    }
 
     if (! is_admin()) {
         wp_dequeue_style('wp-block-library');
@@ -107,14 +128,47 @@ function waqya_exclude_junk_from_queries(WP_Query $query): void
         return;
     }
 
-    if ($query->is_home() || $query->is_archive() || $query->is_search()) {
-        $query->set('category__not_in', array_merge(
+    if ($query->is_category()) {
+        return;
+    }
+
+    $default_cat = (int) get_option('default_category');
+    if ($default_cat > 0 && ($query->is_home() || $query->is_archive() || $query->is_search())) {
+        $not_in = array_filter(array_merge(
             (array) $query->get('category__not_in'),
-            [(int) get_option('default_category')]
+            [$default_cat]
         ));
+        $query->set('category__not_in', $not_in);
     }
 }
 add_action('pre_get_posts', 'waqya_exclude_junk_from_queries');
+
+/**
+ * Clean archive titles (no "Category:" prefix).
+ */
+function waqya_archive_title(string $title): string
+{
+    if (is_category()) {
+        return single_cat_title('', false);
+    }
+    if (is_tag()) {
+        return single_tag_title('', false);
+    }
+    return $title;
+}
+add_filter('get_the_archive_title', 'waqya_archive_title');
+
+/**
+ * WP-CLI: sync posts into editorial nav categories.
+ */
+if (defined('WP_CLI') && WP_CLI) {
+    WP_CLI::add_command('waqya sync-categories', static function (): void {
+        $result = waqya_sync_posts_to_editorial_categories();
+        WP_CLI::success(
+            sprintf('Assigned %d of %d published posts to editorial categories.', $result['updated'], $result['total'])
+        );
+    });
+}
 
 /**
  * Excerpt length for cards.
@@ -154,24 +208,16 @@ function waqya_style_source_attribution(string $content): string
 add_filter('the_content', 'waqya_style_source_attribution', 20);
 
 /**
- * Default category menu fallback — mirrors automation/config.yaml.
+ * Legacy flat nav if categories.json is missing.
  */
-function waqya_categories_nav_fallback(): void
+function waqya_categories_nav_fallback_legacy(): void
 {
-    $categories = [
-        'technology' => __('Technology', 'waqya'),
-        'world'      => __('World', 'waqya'),
-        'science'    => __('Science', 'waqya'),
-        'business'   => __('Business', 'waqya'),
-        'opinion'    => __('Opinion', 'waqya'),
-    ];
-
-    echo '<ul class="nav-categories__list">';
-    foreach ($categories as $slug => $label) {
-        $term = get_category_by_slug($slug);
-        $url  = $term ? get_category_link($term) : home_url('/category/' . $slug . '/');
+    echo '<ul class="site-nav-section__list">';
+    foreach (waqya_primary_categories() as $key => $meta) {
+        $label = (string) ($meta['label'] ?? $key);
+        $url   = waqya_category_url((string) $key);
         printf(
-            '<li class="nav-categories__item"><a class="nav-categories__link" href="%s">%s</a></li>',
+            '<li class="site-nav-section__item"><a class="site-nav-section__link" href="%s">%s</a></li>',
             esc_url($url),
             esc_html($label)
         );

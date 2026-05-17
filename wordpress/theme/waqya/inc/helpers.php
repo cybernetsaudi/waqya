@@ -58,10 +58,14 @@ function waqya_excluded_post_ids(array $extra = []): array
 function waqya_the_thumbnail(string $size = 'waqya-card', string $class = ''): void
 {
     if (has_post_thumbnail()) {
-        the_post_thumbnail($size, [
+        $attrs = [
             'class'   => $class,
             'loading' => $size === 'waqya-hero' ? 'eager' : 'lazy',
-        ]);
+        ];
+        if (str_contains($class, 'post-slider__image')) {
+            $attrs['sizes'] = '100vw';
+        }
+        the_post_thumbnail($size, $attrs);
         return;
     }
 
@@ -96,9 +100,9 @@ function waqya_site_name(): string
 function waqya_site_tagline(): string
 {
     $tagline = get_bloginfo('description');
-    if ($tagline !== '') {
+    if ($tagline !== '' && stripos($tagline, 'ai-powered') === false) {
         return $tagline;
     }
 
-    return __('Independent news commentary', 'waqya');
+    return waqya_brand_tagline();
 }

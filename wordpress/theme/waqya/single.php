@@ -8,54 +8,74 @@
 get_header();
 ?>
 
-<?php while (have_posts()) : the_post(); ?>
-    <article <?php post_class('single-post'); ?>>
-        <div class="single-post__header">
-            <?php waqya_breadcrumbs(); ?>
-            <div class="single-post__meta-top">
-                <?php waqya_category_badge(); ?>
-                <?php waqya_posted_on(); ?>
-            </div>
-            <h1 class="single-post__title"><?php the_title(); ?></h1>
-            <?php if (has_excerpt()) : ?>
-                <p class="single-post__dek"><?php echo esc_html(get_the_excerpt()); ?></p>
-            <?php endif; ?>
-        </div>
+<div class="page-shell">
+    <div class="editorial-layout">
+        <div class="editorial-layout__primary">
+            <?php
+            while (have_posts()) :
+                the_post();
+                ?>
+                <article <?php post_class('single-post'); ?>>
+                    <header class="single-post__header">
+                        <?php waqya_render_category_follow(); ?>
+                        <h1 class="single-post__title"><?php the_title(); ?></h1>
+                        <?php if (has_excerpt()) : ?>
+                            <p class="single-post__dek"><?php echo esc_html(get_the_excerpt()); ?></p>
+                        <?php endif; ?>
+                        <p class="single-post__byline">
+                            <time datetime="<?php echo esc_attr(get_the_date(DATE_W3C)); ?>">
+                                <?php echo esc_html(waqya_time_ago()); ?>
+                            </time>
+                            <span aria-hidden="true">·</span>
+                            <?php echo esc_html(sprintf(
+                                _n('%d min read', '%d min read', waqya_reading_time(), 'waqya'),
+                                waqya_reading_time()
+                            )); ?>
+                        </p>
+                    </header>
 
-        <?php if (has_post_thumbnail()) : ?>
-            <figure class="single-post__featured">
-                <?php the_post_thumbnail('waqya-hero', ['class' => 'single-post__image']); ?>
+                    <figure class="single-post__featured">
+                        <?php waqya_the_thumbnail('waqya-hero', 'single-post__image'); ?>
+                        <?php
+                        $caption = get_the_post_thumbnail_caption();
+                        if ($caption) :
+                            ?>
+                            <figcaption class="single-post__caption"><?php echo esc_html($caption); ?></figcaption>
+                        <?php elseif (has_excerpt()) : ?>
+                            <figcaption class="single-post__caption"><?php echo esc_html(get_the_excerpt()); ?></figcaption>
+                        <?php endif; ?>
+                    </figure>
+
+                    <div class="single-post__content entry-content">
+                        <?php the_content(); ?>
+                    </div>
+
+                    <?php
+                    $tags = get_the_tags();
+                    if ($tags) :
+                        ?>
+                        <footer class="single-post__footer">
+                            <ul class="tag-list" aria-label="<?php esc_attr_e('Tags', 'waqya'); ?>">
+                                <?php foreach ($tags as $tag) : ?>
+                                    <li class="tag-list__item">
+                                        <a class="tag-list__link" href="<?php echo esc_url(get_tag_link($tag)); ?>">
+                                            <?php echo esc_html($tag->name); ?>
+                                        </a>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </footer>
+                    <?php endif; ?>
+                </article>
                 <?php
-                $caption = get_the_post_thumbnail_caption();
-                if ($caption) :
-                    ?>
-                    <figcaption class="single-post__caption"><?php echo esc_html($caption); ?></figcaption>
-                <?php endif; ?>
-            </figure>
-        <?php endif; ?>
-
-        <div class="single-post__content entry-content">
-            <?php the_content(); ?>
+                $current_id = get_the_ID();
+            endwhile;
+            ?>
         </div>
 
-        <?php
-        $tags = get_the_tags();
-        if ($tags) :
-            ?>
-            <footer class="single-post__footer">
-                <ul class="tag-list" aria-label="<?php esc_attr_e('Tags', 'waqya'); ?>">
-                    <?php foreach ($tags as $tag) : ?>
-                        <li class="tag-list__item">
-                            <a class="tag-list__link" href="<?php echo esc_url(get_tag_link($tag)); ?>">
-                                <?php echo esc_html($tag->name); ?>
-                            </a>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            </footer>
-        <?php endif; ?>
-    </article>
-<?php endwhile; ?>
+        <?php waqya_render_sidebar([], $current_id ?? null); ?>
+    </div>
+</div>
 
 <?php
 get_footer();

@@ -24,6 +24,21 @@ function waqya_reading_time(?int $post_id = null): int
 }
 
 /**
+ * Relative publish time (e.g. "2 hours ago").
+ */
+function waqya_time_ago(?int $post_id = null): string
+{
+    $post_id = $post_id ?? get_the_ID();
+    $diff    = human_time_diff(get_post_time('U', true, $post_id), current_time('timestamp'));
+
+    return sprintf(
+        /* translators: %s: human time diff */
+        __('%s ago', 'waqya'),
+        $diff
+    );
+}
+
+/**
  * Post meta line: date and reading time.
  */
 function waqya_posted_on(): void
@@ -48,9 +63,21 @@ function waqya_posted_on(): void
 }
 
 /**
+ * Category badge + Follow on single posts (requires Waqya Subscribers plugin).
+ */
+function waqya_render_category_follow(): void
+{
+    if (class_exists('Waqya_Subscribers_Frontend')) {
+        Waqya_Subscribers_Frontend::category_follow_row();
+        return;
+    }
+    waqya_category_badge();
+}
+
+/**
  * Category badge for cards and singles.
  */
-function waqya_category_badge(): void
+function waqya_category_badge(bool $link = true): void
 {
     $categories = get_the_category();
     if (empty($categories)) {
@@ -59,13 +86,19 @@ function waqya_category_badge(): void
 
     $cat  = $categories[0];
     $slug = sanitize_html_class($cat->slug);
+    $name = esc_html($cat->name);
 
-    printf(
-        '<a class="badge badge--%s" href="%s">%s</a>',
-        esc_attr($slug),
-        esc_url(get_category_link($cat)),
-        esc_html($cat->name)
-    );
+    if ($link) {
+        printf(
+            '<a class="badge badge--%s" href="%s">%s</a>',
+            esc_attr($slug),
+            esc_url(get_category_link($cat)),
+            $name
+        );
+        return;
+    }
+
+    printf('<span class="badge badge--%s">%s</span>', esc_attr($slug), $name);
 }
 
 /**
@@ -73,10 +106,6 @@ function waqya_category_badge(): void
  */
 function waqya_breadcrumbs(): void
 {
-    if (is_front_page()) {
-        return;
-    }
-
     echo '<nav class="breadcrumbs" aria-label="' . esc_attr__('Breadcrumb', 'waqya') . '">';
     echo '<ol class="breadcrumbs__list">';
 
@@ -116,6 +145,9 @@ function waqya_pagination(): void
         'type'      => 'array',
         'prev_text' => esc_html__('Previous', 'waqya'),
         'next_text' => esc_html__('Next', 'waqya'),
+        'add_args'  => function_exists('waqya_date_filter_pagination_args')
+            ? waqya_date_filter_pagination_args()
+            : [],
     ]);
 
     if (empty($links)) {

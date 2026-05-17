@@ -6,7 +6,7 @@
 
   const menuToggle = document.querySelector('[data-menu-toggle]');
   const searchToggle = document.querySelector('[data-search-toggle]');
-  const nav = document.getElementById('site-nav');
+  const nav = document.getElementById('site-nav'); // .site-nav-section
   const searchPanel = document.getElementById('site-search');
   const searchInput = searchPanel?.querySelector('.search-form__input');
 

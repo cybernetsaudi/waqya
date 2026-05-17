@@ -21,7 +21,7 @@ $slug = waqya_post_category_slug();
         </h3>
         <p class="post-card__excerpt"><?php echo esc_html(get_the_excerpt()); ?></p>
         <time class="post-card__date" datetime="<?php echo esc_attr(get_the_date(DATE_W3C)); ?>">
-            <?php echo esc_html(get_the_date()); ?>
+            <?php echo esc_html(waqya_time_ago()); ?>
         </time>
     </div>
 </article>

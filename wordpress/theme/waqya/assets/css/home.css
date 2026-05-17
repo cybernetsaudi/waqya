@@ -1,0 +1,285 @@
+/* ==========================================================================
+   Homepage — editorial landing layout
+   ========================================================================== */
+
+.home-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0 auto;
+  padding: var(--space-5) var(--site-gutter) var(--space-10);
+  box-sizing: border-box;
+}
+
+.home-page__hero {
+  width: 100%;
+  min-width: 0;
+}
+
+.home-page__sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  width: 100%;
+  min-width: 0;
+}
+
+/* Brand note — compact card below hero */
+.brand-story--compact {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.brand-story--compact .brand-story__inner {
+  display: grid;
+  gap: var(--space-4);
+  max-width: none;
+  padding: var(--space-5);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  box-shadow: var(--shadow-card);
+}
+
+@media (min-width: 768px) {
+  .brand-story--compact .brand-story__inner {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-6);
+    padding: var(--space-5) var(--space-6);
+  }
+}
+
+.brand-story--compact .brand-story__eyebrow {
+  margin-bottom: var(--space-2);
+}
+
+.brand-story--compact .brand-story__title {
+  margin-bottom: var(--space-2);
+}
+
+.brand-story--compact .brand-story__name,
+.brand-story--compact .brand-story__meaning {
+  font-size: clamp(1.375rem, 3vw, 1.75rem);
+}
+
+.brand-story--compact .brand-story__lead {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.brand-story--compact .brand-story__more {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+}
+
+.brand-story--compact .brand-story__more summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-accent);
+  list-style: none;
+}
+
+.brand-story--compact .brand-story__more summary::-webkit-details-marker {
+  display: none;
+}
+
+.brand-story--compact .brand-story__more summary::after {
+  content: " +";
+  font-weight: 700;
+}
+
+.brand-story--compact .brand-story__more[open] summary::after {
+  content: " −";
+}
+
+.brand-story--compact .brand-story__body {
+  margin: var(--space-3) 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+/* Full brand story (non-compact fallback) */
+.brand-story:not(.brand-story--compact) {
+  margin-bottom: 0;
+  padding: var(--space-6) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brand-story__inner {
+  max-width: 40rem;
+}
+
+.brand-story__eyebrow {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.brand-story__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.brand-story__name {
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  color: var(--color-ink);
+}
+
+.brand-story__means {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--color-ink-subtle);
+  text-transform: lowercase;
+}
+
+.brand-story__meaning {
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  color: var(--color-accent);
+}
+
+.brand-story__lead {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--color-ink);
+}
+
+.brand-story__body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--color-ink-muted);
+}
+
+/* Category sections on homepage */
+.home-section {
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.home-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 2px solid var(--color-ink);
+}
+
+.home-section__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 2.2vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+
+.home-section__title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-section__title a:hover {
+  color: var(--color-accent);
+}
+
+.home-section__more {
+  flex-shrink: 0;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--color-accent);
+}
+
+.home-section__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 600px) {
+  .home-section__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5);
+  }
+}
+
+@media (min-width: 1024px) {
+  .home-section__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Cards on homepage — tighter rhythm */
+.home-page .post-card {
+  height: 100%;
+  min-width: 0;
+}
+
+.home-page .post-card__body {
+  padding: var(--space-4);
+}
+
+.home-page .post-card__title {
+  font-size: 1.0625rem;
+  margin-bottom: var(--space-2);
+}
+
+.home-page .post-card__excerpt {
+  -webkit-line-clamp: 2;
+  margin-bottom: var(--space-3);
+  font-size: 0.875rem;
+}
+
+.home-page .post-card__date {
+  font-size: 0.6875rem;
+}
+
+@media (max-width: 599px) {
+  .home-page {
+    gap: var(--space-6);
+    padding-top: var(--space-4);
+  }
+
+  .home-section__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .brand-story--compact .brand-story__inner {
+    padding: var(--space-4);
+  }
+}
