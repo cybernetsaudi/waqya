@@ -186,11 +186,17 @@ def normalize_tags(
 ) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
+    skip_labels = {
+        c.get("label", "").lower()
+        for c in load_categories().get("primary_categories", {}).values()
+    }
 
     def add(tag: str) -> None:
         tag = re.sub(r"\s+", " ", tag.strip())
         if len(tag) < 2 or len(tag) > 48:
             return
+        if tag.lower() in skip_labels:
+            return  # category names are not WordPress tags
         k = tag.lower()
         if k not in seen:
             seen.add(k)

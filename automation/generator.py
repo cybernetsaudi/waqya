@@ -164,8 +164,7 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         topic_tags=topic_tag_list,
         max_tags=15,
     )
-    if primary["label"] not in tags:
-        tags.insert(0, primary["label"])
+    # Primary desk is the category only — not duplicated as a tag
 
     return Article(
         headline=headline,

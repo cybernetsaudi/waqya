@@ -187,8 +187,7 @@ def recategorize_post(
     topic_tags = [t.strip() for t in parsed.get("topic_tags", "").split(",") if t.strip()]
     subjects = [s.strip() for s in parsed["subjects"].split(",") if s.strip()]
     tags = normalize_tags(parsed["tags"], regions=regions, topic_tags=topic_tags, max_tags=15)
-    if primary["label"] not in tags:
-        tags.insert(0, primary["label"])
+    # Primary desk is the category only — not duplicated as a tag
 
     cat_id = cat_ids.get(primary["wp_category"].lower())
     if not cat_id:
