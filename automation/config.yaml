@@ -19,11 +19,12 @@ pipeline:
     max_per_cluster_per_run: 1
     max_per_primary_per_run: 2
     min_distinct_primaries_per_run: 3
-    cluster_overlap_threshold: 0.38
-    recent_hours: 72
-    trending_score_cap: 8.0
-    saturation_penalty: 12.0
-    primary_daily_cap: 2
+    cluster_overlap_threshold: 0.42
+    # Shorter window = softer "already covered" scoring (not hard blocks)
+    recent_hours: 24
+    trending_score_cap: 10.0
+    saturation_penalty: 5.0
+    primary_daily_cap: 4
 
 # Taxonomy source of truth: automation/waqya_categories.yaml
 taxonomy:
@@ -62,7 +63,7 @@ newsapi:
   domains: "bbc.co.uk,reuters.com,techcrunch.com,theverge.com,arstechnica.com,aljazeera.com"
   language: "en"
   sort_by: "publishedAt"
-  page_size: 20
+  page_size: 30
   top_headline_categories:
     - general
     - business

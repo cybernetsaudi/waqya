@@ -109,12 +109,12 @@ def clusters_match(
 ) -> bool:
     if cluster_overlap(a, b) >= threshold:
         return True
-    # Same distinctive rare token (e.g. hantavirus, nvidia, burnham)
+    # Same distinctive rare token — avoid blocking all "trump/china" headlines.
     shared = a & b
     if not shared:
         return False
     for tok in shared:
-        if len(tok) >= 6 or tok in {"trump", "china", "taiwan", "nvidia", "cruise", "burnham"}:
+        if len(tok) >= 9:
             return True
     return False
 
@@ -256,7 +256,8 @@ def select_diverse_stories(
     def can_add(story: dict, primary: str, ck: frozenset[str]) -> bool:
         if run_primary_counts[primary] >= div.max_per_primary_per_run:
             return False
-        for rc in run_clusters + recent_clusters:
+        # Only hard-block duplicate topics within this run — not against all recent posts.
+        for rc in run_clusters:
             if clusters_match(ck, rc, div.cluster_overlap_threshold):
                 return False
         return True
@@ -309,6 +310,15 @@ def select_diverse_stories(
         selected_urls.add(story.get("url", "").lower())
         run_clusters.append(ck)
         run_primary_counts[primary] += 1
+
+    if len(selected) < max_new:
+        log.warning(
+            "Diversity picked %d / %d — %d candidates after dedup, WP saturation window %dh",
+            len(selected),
+            max_new,
+            len(scored),
+            div.recent_hours,
+        )
 
     if selected:
         log.info(

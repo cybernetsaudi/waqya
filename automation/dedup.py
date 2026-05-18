@@ -36,7 +36,7 @@ def fingerprint(title: str, url: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
-def recent_titles(max_age_days: int = 14, limit: int = 200) -> list[str]:
+def recent_titles(max_age_days: int = 3, limit: int = 80) -> list[str]:
     """Titles processed recently (for similar-event detection)."""
     cutoff = time.time() - (max_age_days * 86400)
     conn = _connect()
@@ -48,7 +48,7 @@ def recent_titles(max_age_days: int = 14, limit: int = 200) -> list[str]:
     return [r[0] for r in rows if r[0]]
 
 
-def is_similar_event(title: str, summary: str = "", threshold: float = 0.38) -> bool:
+def is_similar_event(title: str, summary: str = "", threshold: float = 0.52) -> bool:
     """True if title overlaps a recently processed story cluster."""
     try:
         from story_diversity import cluster_key, clusters_match
