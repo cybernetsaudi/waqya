@@ -14,7 +14,8 @@ import feedparser
 import requests
 import yaml
 
-from dedup import is_seen, mark_seen
+from dedup import count_seen as _dedup_count, is_seen, mark_seen
+from sources import merge_extra_sources
 from story_diversity import load_diversity_config, select_diverse_stories
 from taxonomy import suggest_primary_from_story
 from trending import (
@@ -56,14 +57,15 @@ def load_config() -> dict:
             if cat.get("trending"):
                 base_t = cfg.get("trending", {})
                 cfg["trending"] = {**base_t, **cat["trending"]}
-    return cfg
+    return merge_extra_sources(cfg)
 
 
 def _fetch_rss(feed_url: str, feed_name: str, category: str) -> list[Story]:
     stories: list[Story] = []
     try:
         parsed = feedparser.parse(feed_url)
-        for entry in parsed.entries[:15]:
+        limit = 20
+        for entry in parsed.entries[:limit]:
             title = entry.get("title", "").strip()
             link = entry.get("link", "").strip()
             summary = entry.get("summary", entry.get("description", "")).strip()
@@ -92,6 +94,108 @@ def gather_rss(config: dict) -> list[Story]:
         all_stories.extend(stories)
         log.info("RSS  %-30s → %d items", feed["name"], len(stories))
     return all_stories
+
+
+def gather_google_news(config: dict) -> list[Story]:
+    """Google News topic RSS — free, strong on regional breaking news."""
+    gcfg = config.get("google_news", {})
+    if not gcfg.get("enabled", True):
+        return []
+
+    all_stories: list[Story] = []
+    for feed in gcfg.get("feeds", []):
+        stories = _fetch_rss(
+            feed["url"],
+            feed.get("name", "Google News"),
+            feed.get("category", "world"),
+        )
+        for s in stories:
+            s.trend_score += 3.0
+        all_stories.extend(stories)
+        log.info("GoogleNews %-30s → %d items", feed.get("name", "?"), len(stories))
+    return all_stories
+
+
+def gather_newsapi_country_headlines(config: dict) -> list[Story]:
+    """Top headlines by country (Middle East, South Asia, etc.)."""
+    api_key = os.environ.get("NEWSAPI_KEY", "")
+    api_cfg = config.get("newsapi", {})
+    if not api_key or not api_cfg.get("enabled"):
+        return []
+
+    country_map = api_cfg.get("regional_countries") or {}
+    stories: list[Story] = []
+
+    for country, meta in country_map.items():
+        if isinstance(meta, str):
+            feed_cat, page_size = meta, 8
+        else:
+            feed_cat = meta.get("category", "world")
+            page_size = int(meta.get("page_size", 8))
+        try:
+            resp = requests.get(
+                "https://newsapi.org/v2/top-headlines",
+                params={
+                    "apiKey": api_key,
+                    "country": country,
+                    "pageSize": page_size,
+                    "language": "en",
+                },
+                timeout=12,
+            )
+            resp.raise_for_status()
+            for article in resp.json().get("articles", []):
+                title = (article.get("title") or "").strip()
+                url = (article.get("url") or "").strip()
+                if not title or not url or title == "[Removed]":
+                    continue
+                stories.append(
+                    Story(
+                        title=title,
+                        url=url,
+                        source=f"NewsAPI:{country}",
+                        summary=(article.get("description") or "")[:500],
+                        category=feed_cat,
+                        published=article.get("publishedAt", ""),
+                        trend_score=6.0,
+                    )
+                )
+        except Exception:
+            log.exception("NewsAPI country headlines failed: %s", country)
+
+    log.info("NewsAPI regional countries → %d items", len(stories))
+    return stories
+
+
+def gather_newsapi_topic_queries(config: dict) -> list[Story]:
+    """Targeted /everything searches (region, space, tech)."""
+    api_key = os.environ.get("NEWSAPI_KEY", "")
+    api_cfg = config.get("newsapi", {})
+    if not api_key or not api_cfg.get("enabled"):
+        return []
+
+    stories: list[Story] = []
+    for item in api_cfg.get("topic_queries", []):
+        query = item.get("query", "")
+        feed_cat = item.get("category", "world")
+        page_size = int(item.get("page_size", 8))
+        if not query:
+            continue
+        for raw in fetch_newsapi_for_query(api_key, query, page_size=page_size):
+            stories.append(
+                Story(
+                    title=raw["title"],
+                    url=raw["url"],
+                    source=f"NewsAPI:q",
+                    summary=raw["summary"],
+                    category=feed_cat,
+                    published=raw.get("published"),
+                    trend_score=7.0,
+                    trend_matched=query[:40],
+                )
+            )
+    log.info("NewsAPI topic queries → %d items", len(stories))
+    return stories
 
 
 def gather_newsapi(config: dict) -> list[Story]:
@@ -143,11 +247,12 @@ def gather_newsapi(config: dict) -> list[Story]:
 def gather_newsapi_top_headlines(config: dict) -> list[Story]:
     """Top headlines endpoint (free tier) — high-engagement stories."""
     api_key = os.environ.get("NEWSAPI_KEY", "")
+    api_cfg = config.get("newsapi", {})
     if not api_key:
         return []
 
     stories: list[Story] = []
-    categories = config.get("newsapi", {}).get(
+    categories = api_cfg.get(
         "top_headline_categories",
         ["general", "business", "technology"],
     )
@@ -158,7 +263,7 @@ def gather_newsapi_top_headlines(config: dict) -> list[Story]:
                 params={
                     "apiKey": api_key,
                     "language": "en",
-                    "pageSize": 10,
+                    "pageSize": int(api_cfg.get("top_headlines_page_size", 12)),
                     "category": cat,
                 },
                 timeout=12,
@@ -256,9 +361,12 @@ def gather(max_new: int | None = None) -> list[dict]:
     trending = fetch_trending_keywords(config)
 
     raw = (
-        gather_newsapi_top_headlines(config)
-        + gather_trending_queries(config, trending)
+        gather_google_news(config)
         + gather_rss(config)
+        + gather_newsapi_top_headlines(config)
+        + gather_newsapi_country_headlines(config)
+        + gather_newsapi_topic_queries(config)
+        + gather_trending_queries(config, trending)
         + gather_newsapi(config)
     )
     raw = _dedupe_stories(raw)
@@ -279,14 +387,24 @@ def gather(max_new: int | None = None) -> list[dict]:
             c.get("category"),
         )
 
-    def _eligible(title: str, url: str) -> bool:
-        return not is_seen(title, url)
+    def _skip_if_seen(title: str, url: str) -> bool:
+        return is_seen(title, url)
+
+    eligible_count = sum(
+        1 for c in candidates if not _skip_if_seen(c.get("title", ""), c.get("url", ""))
+    )
+    log.info(
+        "Candidates: %d total, %d pass dedup (seen.db entries: %s)",
+        len(candidates),
+        eligible_count,
+        _dedup_count(),
+    )
 
     picked = select_diverse_stories(
         candidates,
         max_new,
         config,
-        is_seen_fn=_eligible,
+        skip_if_seen=_skip_if_seen,
     )
 
     new_stories: list[dict] = []

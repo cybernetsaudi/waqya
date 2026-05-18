@@ -7,7 +7,7 @@ site:
 
 # How many articles to generate per pipeline run
 pipeline:
-  max_articles_per_run: 5
+  max_articles_per_run: 8
   min_words: 600
   max_words: 1200
   delay_between_articles_seconds: 25
@@ -17,7 +17,7 @@ pipeline:
   diversity:
     enabled: true
     max_per_cluster_per_run: 1
-    max_per_primary_per_run: 2
+    max_per_primary_per_run: 3
     min_distinct_primaries_per_run: 3
     cluster_overlap_threshold: 0.42
     # Shorter window = softer "already covered" scoring (not hard blocks)
@@ -54,22 +54,44 @@ trending:
   newsapi_top_headlines: true
   google_trends: true
   max_keywords: 40
-  # Fewer trending searches = less echo on one phrase (e.g. "hantavirus cruise")
-  search_top_queries: 1
+  search_top_queries: 3
 
 # NewsAPI settings (supplements RSS)
 newsapi:
   enabled: true
-  domains: "bbc.co.uk,reuters.com,techcrunch.com,theverge.com,arstechnica.com,aljazeera.com"
+  # Developer (free) tier: ~100 requests/day — we budget ~20/run × 6 runs/day
+  domains: "bbc.co.uk,reuters.com,techcrunch.com,theverge.com,arstechnica.com,aljazeera.com,theguardian.com,dw.com,france24.com"
   language: "en"
   sort_by: "publishedAt"
-  page_size: 30
+  page_size: 25
+  top_headlines_page_size: 12
   top_headline_categories:
     - general
     - business
     - technology
     - science
     - health
+  # Country headlines (NewsAPI country codes)
+  regional_countries:
+    ae: middle-east
+    il: middle-east
+    in: south-asia
+    gb: united-kingdom
+    us: united-states
+  # Targeted searches (uses /everything — 1 request each)
+  topic_queries:
+    - query: "Gaza OR Israel OR Iran OR Hezbollah OR Yemen"
+      category: middle-east
+      page_size: 8
+    - query: "India OR Pakistan OR Bangladesh OR Kashmir"
+      category: south-asia
+      page_size: 8
+    - query: "NASA OR space OR Mars OR telescope OR satellite"
+      category: science
+      page_size: 8
+    - query: "artificial intelligence OR OpenAI OR Nvidia OR cybersecurity"
+      category: technology-ai
+      page_size: 8
 
 # OpenAI model settings
 openai:

@@ -221,17 +221,17 @@ def select_diverse_stories(
     max_new: int,
     config: dict,
     *,
-    is_seen_fn,
+    skip_if_seen,
 ) -> list[dict]:
     """
     Pick up to max_new stories with topic + category diversity.
-    is_seen_fn(title, url) -> bool
+    skip_if_seen(title, url) -> True when story was already processed.
     """
     div = load_diversity_config(config)
     if not div.enabled or max_new <= 0:
         out = []
         for s in candidates:
-            if is_seen_fn(s.get("title", ""), s.get("url", "")):
+            if skip_if_seen(s.get("title", ""), s.get("url", "")):
                 continue
             out.append(s)
             if len(out) >= max_new:
@@ -242,7 +242,7 @@ def select_diverse_stories(
 
     scored: list[tuple[float, dict]] = []
     for story in candidates:
-        if is_seen_fn(story.get("title", ""), story.get("url", "")):
+        if skip_if_seen(story.get("title", ""), story.get("url", "")):
             continue
         adj = adjusted_score(story, div, recent_clusters, recent_primary_counts)
         scored.append((adj, story))

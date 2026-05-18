@@ -1,0 +1,63 @@
+# Extra news sources (no API key) — merged into gatherer at runtime.
+# Google News RSS: broad regional/topic coverage NewsAPI often misses.
+
+google_news:
+  enabled: true
+  feeds:
+    - name: Google — Middle East
+      url: "https://news.google.com/rss/search?q=(Gaza+OR+Israel+OR+Iran+OR+Syria+OR+Lebanon+OR+Yemen)+when:3d&hl=en&gl=US&ceid=US:en"
+      category: middle-east
+    - name: Google — South Asia
+      url: "https://news.google.com/rss/search?q=(India+OR+Pakistan+OR+Bangladesh+OR+Kashmir)+when:3d&hl=en&gl=US&ceid=US:en"
+      category: south-asia
+    - name: Google — Technology & AI
+      url: "https://news.google.com/rss/search?q=(artificial+intelligence+OR+OpenAI+OR+cybersecurity+OR+semiconductor)+when:3d&hl=en&gl=US&ceid=US:en"
+      category: technology-ai
+    - name: Google — Space & Science
+      url: "https://news.google.com/rss/search?q=(NASA+OR+space+mission+OR+astronomy+OR+James+Webb)+when:7d&hl=en&gl=US&ceid=US:en"
+      category: science
+    - name: Google — UK & Europe
+      url: "https://news.google.com/rss/search?q=(United+Kingdom+OR+Brexit+OR+European+Union)+when:3d&hl=en&gl=GB&ceid=GB:en"
+      category: europe
+
+# Additional RSS (free, unlimited) — supplements waqya_categories.yaml
+rss_feeds:
+  - name: Reuters World
+    url: https://feeds.reuters.com/reuters/worldNews
+    category: current-affairs
+  - name: Guardian World
+    url: https://www.theguardian.com/world/rss
+    category: current-affairs
+  - name: Guardian Middle East
+    url: https://www.theguardian.com/world/middleeast/rss
+    category: middle-east
+  - name: DW News
+    url: https://rss.dw.com/rdf/rss-en-world
+    category: current-affairs
+  - name: France 24
+    url: https://www.france24.com/en/rss
+    category: europe
+  - name: Times of India
+    url: https://timesofindia.indiatimes.com/rssfeedmostread.cms
+    category: south-asia
+  - name: The Hindu
+    url: https://www.thehindu.com/news/international/feeder/default.rss
+    category: south-asia
+  - name: NPR Science
+    url: https://feeds.npr.org/1007/rss.xml
+    category: science
+  - name: NASA Breaking
+    url: https://www.nasa.gov/rss/dyn/breaking_news.rss
+    category: science
+  - name: Space.com
+    url: https://www.space.com/feeds/all
+    category: science
+  - name: Nature News
+    url: https://feeds.nature.com/nature/rss/current
+    category: science
+  - name: Middle East Eye
+    url: https://www.middleeasteye.net/rss
+    category: middle-east
+  - name: Arab News
+    url: https://www.arabnews.com/rss.xml
+    category: middle-east

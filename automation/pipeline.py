@@ -26,7 +26,7 @@ def run() -> int:
     from notifier import notify_new_drafts, notify_error
     from dedup import prune
 
-    prune(max_age_days=30)
+    prune(max_age_days=7)
 
     # Ensure IPTC categories exist in WordPress before publishing
     try:

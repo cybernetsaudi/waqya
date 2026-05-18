@@ -86,6 +86,13 @@ def mark_seen(title: str, url: str, source: str) -> None:
     conn.close()
 
 
+def count_seen() -> int:
+    conn = _connect()
+    n = conn.execute("SELECT COUNT(*) FROM seen_stories").fetchone()[0]
+    conn.close()
+    return int(n)
+
+
 def prune(max_age_days: int = 30) -> int:
     """Remove entries older than *max_age_days*. Returns count deleted."""
     cutoff = time.time() - (max_age_days * 86400)
