@@ -23,6 +23,13 @@ get_header();
                             <p class="single-post__dek"><?php echo esc_html(get_the_excerpt()); ?></p>
                         <?php endif; ?>
                         <p class="single-post__byline">
+                            <?php
+                            $desk = waqya_desk_byline_label();
+                            if ($desk !== '') {
+                                echo '<span class="single-post__desk">' . esc_html($desk) . ' desk</span>';
+                                echo '<span aria-hidden="true">·</span>';
+                            }
+                            ?>
                             <time datetime="<?php echo esc_attr(get_the_date(DATE_W3C)); ?>">
                                 <?php echo esc_html(waqya_time_ago()); ?>
                             </time>
@@ -31,6 +38,10 @@ get_header();
                                 _n('%d min read', '%d min read', waqya_reading_time(), 'waqya'),
                                 waqya_reading_time()
                             )); ?>
+                            <span aria-hidden="true">·</span>
+                            <a href="<?php echo esc_url(home_url('/editorial-policy/')); ?>">
+                                <?php esc_html_e('Editorial policy', 'waqya'); ?>
+                            </a>
                         </p>
                     </header>
 

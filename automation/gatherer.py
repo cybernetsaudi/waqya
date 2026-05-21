@@ -340,6 +340,24 @@ def _rank_stories(
     return sorted(stories, key=lambda x: x.trend_score, reverse=True)
 
 
+def _apply_crisis_filter(candidates: list[dict], config: dict) -> list[dict]:
+    """When crisis mode is on, only gather stories for priority desks."""
+    crisis = config.get("crisis_mode", {})
+    if not crisis.get("enabled"):
+        return candidates
+    desks = set(crisis.get("desks", []))
+    if not desks:
+        return candidates
+    filtered = [c for c in candidates if c.get("suggested_primary") in desks]
+    log.info(
+        "Crisis mode: %d → %d stories (desks: %s)",
+        len(candidates),
+        len(filtered),
+        ", ".join(sorted(desks)),
+    )
+    return filtered if filtered else candidates
+
+
 def _dedupe_stories(stories: list[Story]) -> list[Story]:
     seen_urls: set[str] = set()
     out: list[Story] = []
@@ -386,6 +404,8 @@ def gather(max_new: int | None = None) -> list[dict]:
             c.get("summary", ""),
             c.get("category"),
         )
+
+    candidates = _apply_crisis_filter(candidates, config)
 
     def _skip_if_seen(title: str, url: str) -> bool:
         return is_seen(title, url)

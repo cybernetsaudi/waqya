@@ -11,7 +11,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('WAQYA_VERSION', '1.6.2');
+define('WAQYA_VERSION', '1.6.3');
 define('WAQYA_DIR', get_template_directory());
 define('WAQYA_URI', get_template_directory_uri());
 
@@ -24,6 +24,7 @@ require_once WAQYA_DIR . '/inc/brand.php';
 require_once WAQYA_DIR . '/inc/taxonomy-config.php';
 require_once WAQYA_DIR . '/inc/slider.php';
 require_once WAQYA_DIR . '/inc/date-filter.php';
+require_once WAQYA_DIR . '/inc/seo.php';
 
 /**
  * Theme setup.

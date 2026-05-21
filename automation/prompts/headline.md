@@ -38,3 +38,4 @@ TAGS: 8-12 comma-separated tags (entities, places, themes — include primary la
 REGION_TAGS: comma-separated region tags from optional list (or blank)
 TOPIC_TAGS: comma-separated topic tags from optional list (or blank)
 SUBJECTS: 4-8 Dublin Core subject keywords
+WAQYA_READ: exactly 3 short bullets separated by | (The Waqya read — what it means next, who wins/loses, what to watch)

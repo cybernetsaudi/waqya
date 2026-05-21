@@ -43,7 +43,8 @@ jobs:
           path: |
             automation/seen.db
             automation/images.db
-          key: waqya-dedup-v2
+            automation/budget_usage.json
+          key: waqya-dedup-v3
 
       - name: Run pipeline
         working-directory: automation

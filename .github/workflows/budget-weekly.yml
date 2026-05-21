@@ -1,0 +1,37 @@
+name: Waqya Weekly Budget Alert
+
+on:
+  schedule:
+    # Mondays 09:00 UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+env:
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+jobs:
+  weekly-summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: automation/requirements.txt
+
+      - run: pip install -r automation/requirements.txt
+
+      - name: Restore budget usage
+        uses: actions/cache@v4
+        with:
+          path: automation/budget_usage.json
+          key: waqya-budget-v1
+
+      - name: Send weekly Telegram summary
+        working-directory: automation
+        run: python budget_weekly.py

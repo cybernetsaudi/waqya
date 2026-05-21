@@ -145,9 +145,40 @@ def _figure_html(img: FetchedImage) -> str:
     )
 
 
+def _waqya_read_html(article: Article) -> str:
+    if not article.waqya_read:
+        return ""
+    bullets = [b.strip() for b in article.waqya_read.split("|") if b.strip()]
+    if len(bullets) < 2:
+        return ""
+    items = "".join(f"<li>{html_module.escape(b)}</li>" for b in bullets[:3])
+    return (
+        '<aside class="waqya-read" role="note">'
+        "<h2>The Waqya read</h2>"
+        f"<ul>{items}</ul>"
+        "</aside>"
+    )
+
+
+def _editorial_footer_html(article: Article, primary: dict) -> str:
+    desk = html_module.escape(primary.get("label", "Waqya"))
+    updated = "Published"
+    return (
+        '<footer class="waqya-editorial-footer">'
+        f"<p><strong>Commentary</strong> · {desk} desk · "
+        "Facts attributed to sources · "
+        '<a href="/editorial-policy/">Editorial policy</a> · '
+        '<a href="/corrections/">Corrections</a></p>'
+        "</footer>"
+    )
+
+
 def _build_article_html(article: Article, images: Optional[ArticleImages]) -> str:
     paragraphs = [p.strip() for p in article.body.split("\n\n") if p.strip()]
     html_parts: list[str] = []
+    read_box = _waqya_read_html(article)
+    if read_box:
+        html_parts.append(read_box)
 
     inline_figures: list[str] = []
     if images:
@@ -169,9 +200,9 @@ def _build_article_html(article: Article, images: Optional[ArticleImages]) -> st
         inline_idx += 1
 
     html_parts.append(
-        f'<p><em>Source: <a href="{article.source_url}" '
+        f'<p class="source-attribution"><em>Source: <a href="{article.source_url}" '
         f'target="_blank" rel="noopener noreferrer">'
-        f"{article.source_name}</a></em></p>"
+        f"{html_module.escape(article.source_name)}</a></em></p>"
     )
     return "\n\n".join(html_parts)
 
@@ -196,9 +227,20 @@ class PublishResult:
     edit_url: str
     title: str
     post_url: str
+    status: str = "draft"
+    quality_score: int = 0
+    is_breaking: bool = False
+    held_reason: str = ""
 
 
-def publish_draft(article: Article) -> Optional[PublishResult]:
+def publish_draft(
+    article: Article,
+    *,
+    post_status: str | None = None,
+    quality_score: int = 0,
+    is_breaking: bool = False,
+    held_reason: str = "",
+) -> Optional[PublishResult]:
     base_url, user, password = _wp_auth()
     auth = (user, password)
     config = _load_config()
@@ -209,10 +251,15 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
     cat_name = article.wp_category or primary["label"]
     cat_slug = primary["slug"]
     cat_id = _get_or_create_category(base_url, auth, cat_name, cat_slug)
-    tag_ids = _get_or_create_tags(base_url, auth, article.tags)
+
+    tag_names = list(article.tags)
+    if is_breaking and "Breaking" not in tag_names:
+        tag_names.insert(0, "Breaking")
+    tag_ids = _get_or_create_tags(base_url, auth, tag_names)
 
     images = _upload_all_images(base_url, auth, article)
     content_html = _build_article_html(article, images)
+    content_html += _editorial_footer_html(article, primary)
 
     featured_media_id = None
     featured_url = None
@@ -228,7 +275,8 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
     subjects_str = ", ".join(article.subjects) if article.subjects else ""
     regions_str = ", ".join(article.regions) if article.regions else ""
 
-    post_status = "publish" if config.get("pipeline", {}).get("auto_publish", False) else "draft"
+    if post_status is None:
+        post_status = "publish" if config.get("pipeline", {}).get("auto_publish", False) else "draft"
 
     post_data = {
         "title": article.headline,
@@ -238,6 +286,8 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
         "categories": [cat_id] if cat_id else [],
         "tags": tag_ids,
         "meta": {
+            "_waqya_quality_score": str(quality_score),
+            "_waqya_is_breaking": "1" if is_breaking else "0",
             "_yoast_wpseo_metadesc": article.meta_description,
             "_yoast_wpseo_title": article.headline[:60],
             "_yoast_wpseo_focuskw": focus[:60],
@@ -281,18 +331,51 @@ def publish_draft(article: Article) -> Optional[PublishResult]:
         )
 
         return PublishResult(
-            post_id=post_id, edit_url=edit_url, title=article.headline, post_url=post_url
+            post_id=post_id,
+            edit_url=edit_url,
+            title=article.headline,
+            post_url=post_url,
+            status=post_status,
+            quality_score=quality_score,
+            is_breaking=is_breaking,
+            held_reason=held_reason,
         )
     except Exception:
         log.exception("Failed to publish draft: %s", article.headline)
         return None
 
 
-def publish_batch(articles: list[Article]) -> list[PublishResult]:
+def publish_batch(
+    articles: list[Article],
+    qualities: list | None = None,
+) -> list[PublishResult]:
+    from quality_gate import QualityResult, resolve_post_status, score_article
+
+    config = _load_config()
     results: list[PublishResult] = []
-    for article in articles:
-        result = publish_draft(article)
+    for i, article in enumerate(articles):
+        q: QualityResult
+        if qualities and i < len(qualities):
+            q = qualities[i]
+        else:
+            q = score_article(article, article.source_story, config)
+            article.quality_score = q.score
+            article.is_breaking = q.is_breaking
+
+        status = resolve_post_status(q, config)
+        reason = ""
+        if status == "draft" and not q.publish_recommended:
+            reason = f"Quality score {q.score}/100 below threshold"
+
+        result = publish_draft(
+            article,
+            post_status=status,
+            quality_score=q.score,
+            is_breaking=q.is_breaking,
+            held_reason=reason,
+        )
         if result:
             results.append(result)
-    log.info("Published %d / %d drafts", len(results), len(articles))
+    published = sum(1 for r in results if r.status == "publish")
+    log.info("Published %d live, %d held / %d articles", published, len(results) - published, len(articles))
     return results

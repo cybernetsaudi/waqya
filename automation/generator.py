@@ -43,6 +43,10 @@ class Article:
     source_name: str
     image_query: str = ""
     images: object = None  # image_fetcher.ArticleImages
+    waqya_read: str = ""
+    source_story: dict | None = None
+    quality_score: int = 0
+    is_breaking: bool = False
     iptc_topic: str = ""
     iptc_code: str = ""
     iptc_label: str = ""
@@ -82,11 +86,13 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         .replace("{{TOPIC_TAGS}}", ", ".join(topic_tags_list()[:25]))
     )
 
+    from editorial_calendar import today_focus
     from taxonomy import suggest_primary_from_story
 
     suggested_primary = story.get("suggested_primary") or suggest_primary_from_story(
         story["title"], story.get("summary", ""), story.get("category")
     )
+    cal_focus = today_focus(config)
 
     user_input = (
         f"NEWS STORY\n"
@@ -95,8 +101,10 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         f"Summary: {story['summary']}\n"
         f"URL: {story['url']}\n"
         f"Published: {story.get('published', 'Unknown')}\n"
-        f"Suggested desk (editorial section): {suggested_primary}"
+        f"Suggested desk (editorial section): {suggested_primary}\n"
     )
+    if cal_focus:
+        user_input += f"{cal_focus}\n"
 
     # Step 1: Generate the article body
     try:
@@ -164,7 +172,7 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         topic_tags=topic_tag_list,
         max_tags=15,
     )
-    # Primary desk is the category only — not duplicated as a tag
+    waqya_read = parsed.get("waqya_read", "")
 
     return Article(
         headline=headline,
@@ -177,6 +185,8 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         source_url=story["url"],
         source_name=story["source"],
         image_query=image_query,
+        waqya_read=waqya_read,
+        source_story=story,
         iptc_topic=primary["primary_key"],
         iptc_code=parsed.get("iptc_code") or primary["iptc_code"],
         iptc_label=primary["label"],
@@ -201,6 +211,7 @@ def _parse_headline_response(raw: str) -> dict:
         "regions": "",
         "region_tags": "",
         "topic_tags": "",
+        "waqya_read": "",
     }
     key_map = {
         "HEADLINE": "headline",
@@ -216,6 +227,7 @@ def _parse_headline_response(raw: str) -> dict:
         "REGIONS": "regions",
         "REGION_TAGS": "region_tags",
         "TOPIC_TAGS": "topic_tags",
+        "WAQYA_READ": "waqya_read",
     }
 
     for line in raw.splitlines():

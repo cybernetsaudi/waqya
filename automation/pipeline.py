@@ -12,30 +12,52 @@ import logging
 import os
 import sys
 import traceback
+from pathlib import Path
 
+import yaml
 from dotenv import load_dotenv
 
 log = logging.getLogger("waqya")
 
+CONFIG_PATH = Path(__file__).parent / "config.yaml"
+
+
+def _load_config() -> dict:
+    with open(CONFIG_PATH) as f:
+        return yaml.safe_load(f)
+
 
 def run() -> int:
     """Execute the full pipeline. Returns 0 on success, 1 on failure."""
+    from budget_tracker import maybe_alert_monthly_cap, maybe_send_weekly_summary, record_run
+    from dedup import prune
     from gatherer import gather
     from generator import generate_batch
-    from publisher import publish_batch
-    from notifier import notify_new_drafts, notify_error
-    from dedup import prune
     from image_dedup import prune as prune_images
+    from notifier import notify_error, notify_pipeline_results
+    from publisher import publish_batch
+    from setup_trust_pages import ensure_trust_pages
+
+    config = _load_config()
+
+    maybe_send_weekly_summary(config)
 
     prune(max_age_days=7)
     prune_images(max_age_days=90)
 
-    # Ensure IPTC categories exist in WordPress before publishing
     try:
         from sync_categories import sync_all
+
         sync_all()
     except Exception:
         log.exception("IPTC category sync failed (continuing)")
+
+    try:
+        n_pages = ensure_trust_pages()
+        if n_pages:
+            log.info("Created %d trust/policy pages", n_pages)
+    except Exception:
+        log.exception("Trust pages setup failed (continuing)")
 
     log.info("=" * 50)
     log.info("STEP 1 / 4 — Gathering news")
@@ -43,6 +65,7 @@ def run() -> int:
     stories = gather()
     if not stories:
         log.info("No new stories found — nothing to do")
+        maybe_alert_monthly_cap(config)
         return 0
 
     log.info("=" * 50)
@@ -54,17 +77,32 @@ def run() -> int:
         return 0
 
     log.info("=" * 50)
-    log.info("STEP 3 / 4 — Publishing drafts to WordPress")
+    log.info("STEP 3 / 4 — Publishing to WordPress")
     log.info("=" * 50)
     results = publish_batch(articles)
 
     log.info("=" * 50)
-    log.info("STEP 4 / 5 — Sending Telegram notification")
+    log.info("STEP 4 / 4 — Telegram + budget")
     log.info("=" * 50)
     wp_url = os.environ.get("WP_URL", "https://waqya.com").rstrip("/")
-    notify_new_drafts(results, wp_url)
+    notify_pipeline_results(results, wp_url)
 
-    log.info("Pipeline complete: %d drafts created", len(results))
+    published = sum(1 for r in results if r.status == "publish")
+    held = len(results) - published
+    record_run(
+        config,
+        articles=len(results),
+        published=published,
+        held_draft=held,
+    )
+    maybe_alert_monthly_cap(config)
+
+    log.info(
+        "Pipeline complete: %d live, %d held (%d total)",
+        published,
+        held,
+        len(results),
+    )
     return 0
 
 
@@ -86,6 +124,7 @@ def main():
         log.critical("Pipeline crashed:\n%s", tb)
         try:
             from notifier import notify_error
+
             notify_error(tb[-500:])
         except Exception:
             pass

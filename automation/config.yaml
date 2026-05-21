@@ -13,6 +13,10 @@ pipeline:
   delay_between_articles_seconds: 25
   # true = publish live immediately (no manual approve). false = drafts for review.
   auto_publish: true
+  # quality_gated = auto-publish when score >= threshold; else draft + Telegram hold
+  publish_mode: quality_gated
+  require_min_quality_score: 70
+  always_draft_below_score: 55
   # Spread stories across desks; block duplicate topic clusters (Hantavirus ×8, etc.)
   diversity:
     enabled: true
@@ -101,3 +105,42 @@ openai:
   max_tokens: 2000
 
 default_category: current-affairs
+
+# Tier 1 editorial product
+breaking:
+  enabled: true
+  min_trend_score: 7
+  desks:
+    - war-conflict
+    - middle-east
+    - current-affairs
+
+crisis_mode:
+  enabled: false
+  desks:
+    - war-conflict
+    - middle-east
+    - current-affairs
+    - united-states
+
+editorial_calendar:
+  enabled: true
+  weekdays:
+    monday: "Week opener — politics, markets, and what moved over the weekend"
+    tuesday: "Deep dive — technology, science, or business explainers"
+    wednesday: "Regional focus — Middle East or South Asia when stories warrant"
+    thursday: "Conflict & security — war, diplomacy, migration"
+    friday: "Culture & lighter reads — entertainment, sport, human interest"
+    saturday: "Weekend long read — one strong narrative piece"
+    sunday: "Week ahead — preview stakes for Monday markets and diplomacy"
+    default: "Balanced mix across desks"
+
+budget:
+  enabled: true
+  monthly_cap_usd: 80
+  alert_at_percent: 80
+  weekly_summary: true
+  estimates:
+    openai_per_1k_output_tokens: 0.0006
+    openai_per_article_tokens: 2500
+    pipeline_base_per_run: 0.02

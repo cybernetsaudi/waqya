@@ -1,6 +1,5 @@
 """
-Telegram notifier — sends a summary of newly created drafts
-to the site owner so they can review and approve/reject.
+Telegram notifier — publish/hold summaries, errors, and budget alerts.
 """
 
 from __future__ import annotations
@@ -47,27 +46,44 @@ def send_message(text: str) -> bool:
         return False
 
 
-def notify_new_drafts(results: list[PublishResult], wp_admin_url: str) -> bool:
-    """
-    Send a Telegram message listing all new drafts awaiting review.
-    Includes direct edit links so the owner can approve from their phone.
-    """
+def notify_pipeline_results(results: list[PublishResult], wp_admin_url: str) -> bool:
+    """Notify about a pipeline run: live posts vs drafts held for review."""
     if not results:
-        log.info("No new drafts to notify about")
+        log.info("No posts to notify about")
         return True
 
+    live = [r for r in results if r.status == "publish"]
+    held = [r for r in results if r.status != "publish"]
+
     lines = [
-        f"<b>📰 Waqya — {len(results)} new draft{'s' if len(results) != 1 else ''} ready for review</b>",
+        f"<b>📰 Waqya pipeline — {len(results)} article{'s' if len(results) != 1 else ''}</b>",
+        f"✅ Live: {len(live)} · 📝 Held: {len(held)}",
         "",
     ]
 
     for i, r in enumerate(results, 1):
-        lines.append(f"{i}. <a href=\"{r.edit_url}\">{r.title}</a>")
+        icon = "✅" if r.status == "publish" else "📝"
+        breaking = " 🔴" if r.is_breaking else ""
+        score = f" · {r.quality_score}/100" if r.quality_score else ""
+        link = r.post_url if r.status == "publish" and r.post_url else r.edit_url
+        lines.append(f"{i}. {icon}{breaking} <a href=\"{link}\">{r.title}</a>{score}")
+        if r.held_reason:
+            lines.append(f"   <i>{r.held_reason}</i>")
 
-    lines.append("")
-    lines.append(f"<a href=\"{wp_admin_url}/wp-admin/edit.php?post_status=draft\">→ Open all drafts</a>")
+    if held:
+        lines.append("")
+        lines.append(
+            f'<a href="{wp_admin_url}/wp-admin/edit.php?post_status=draft">→ Review held drafts</a>'
+        )
+    if live:
+        lines.append(f'<a href="{wp_admin_url}">→ View site</a>')
 
     return send_message("\n".join(lines))
+
+
+def notify_new_drafts(results: list[PublishResult], wp_admin_url: str) -> bool:
+    """Backward-compatible alias."""
+    return notify_pipeline_results(results, wp_admin_url)
 
 
 def notify_error(error_msg: str) -> bool:
@@ -79,6 +95,7 @@ def notify_error(error_msg: str) -> bool:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     from dotenv import load_dotenv
+
     load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
     send_message("<b>Waqya Bot Test</b>\n\nIf you see this, notifications are working!")

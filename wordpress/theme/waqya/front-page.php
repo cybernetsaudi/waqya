@@ -29,6 +29,12 @@ $used_ids = [];
 
     <div class="home-page__sections">
         <?php
+        $developing = waqya_render_developing_strip(array_merge($exclude, $used_ids));
+        $used_ids   = array_merge($used_ids, $developing);
+
+        $today_ids = waqya_render_today_on_waqya(array_merge($exclude, $used_ids));
+        $used_ids  = array_merge($used_ids, $today_ids);
+
         $pool = array_merge($exclude, $used_ids);
         foreach (waqya_menu_groups() as $group) {
             $group_id = (string) ($group['id'] ?? '');

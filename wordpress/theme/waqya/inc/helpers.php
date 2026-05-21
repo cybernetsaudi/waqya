@@ -97,6 +97,24 @@ function waqya_site_name(): string
 /**
  * Site tagline with sensible default.
  */
+/**
+ * Desk label for article byline (from pipeline meta or category).
+ */
+function waqya_desk_byline_label(): string
+{
+    $label = get_post_meta(get_the_ID(), '_waqya_iptc_label', true);
+    if (is_string($label) && $label !== '') {
+        return $label;
+    }
+
+    $categories = get_the_category();
+    if (! empty($categories)) {
+        return $categories[0]->name;
+    }
+
+    return '';
+}
+
 function waqya_site_tagline(): string
 {
     $tagline = get_bloginfo('description');

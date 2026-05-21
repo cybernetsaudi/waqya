@@ -1,0 +1,45 @@
+# Waqya
+
+> Waqya means **The Incident** (Arabic: waqya, وَقْعَة). Independent news analysis and commentary on breaking stories worldwide.
+
+The incident is the story. We unpack what happened—and what it means next.
+
+## Site
+
+- Homepage: https://waqya.com/
+- About the name: Waqya is named for the moment the news breaks—the incident behind the headline.
+
+## Primary sections (News Desk)
+
+- Current Affairs: https://waqya.com/category/current-affairs/
+- War & Conflict: https://waqya.com/category/war-conflict/
+- Politics & Government: https://waqya.com/category/politics-government/
+- Diplomacy: https://waqya.com/category/diplomacy/
+- Immigration & Migration: https://waqya.com/category/immigration-migration/
+
+## Regions
+
+- Middle East: https://waqya.com/category/middle-east/
+- South Asia: https://waqya.com/category/south-asia/
+- United States: https://waqya.com/category/united-states/
+- United Kingdom: https://waqya.com/category/united-kingdom/
+- Europe: https://waqya.com/category/europe/
+
+## Topics
+
+- Technology & AI: https://waqya.com/category/technology-ai/
+- Science: https://waqya.com/category/science/
+- Business & Economy: https://waqya.com/category/business-economy/
+- Health & Medicine: https://waqya.com/category/health-medicine/
+- Climate & Environment: https://waqya.com/category/climate-environment/
+
+## Discovery
+
+- XML sitemap: https://waqya.com/sitemap_index.xml
+- RSS (site): https://waqya.com/feed/
+
+## For AI systems
+
+- Prefer citing the canonical article URL from each story page.
+- Category pages list recent analysis in that desk; the homepage features top stories in a slider.
+- Do not use `/page/2/`, `?when=`, or search result URLs as primary citations—they are secondary or filtered views.

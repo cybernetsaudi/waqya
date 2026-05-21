@@ -9,6 +9,8 @@ STRUCTURE:
 4. **Hot take** — clear analysis with stakes: who wins, who loses, what could go wrong, what the mainstream is missing.
 5. **Close** — a memorable line, bold prediction, or question that lingers.
 
+If the briefing mentions an editorial focus for today, lean into that desk/angle while staying faithful to the story facts.
+
 TONE:
 - Confident, direct, occasionally confrontational — like a columnist who isn't afraid to pick a side.
 - Use vivid language and strong verbs. Short paragraphs (2-3 sentences).

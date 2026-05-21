@@ -18,6 +18,15 @@
             <p class="site-footer__tagline"><?php echo esc_html(waqya_site_tagline()); ?></p>
         </div>
 
+        <nav class="site-footer__trust" aria-label="<?php esc_attr_e('Trust & policies', 'waqya'); ?>">
+            <ul class="site-footer__links">
+                <li><a href="<?php echo esc_url(home_url('/editorial-policy/')); ?>"><?php esc_html_e('Editorial policy', 'waqya'); ?></a></li>
+                <li><a href="<?php echo esc_url(home_url('/corrections/')); ?>"><?php esc_html_e('Corrections', 'waqya'); ?></a></li>
+                <li><a href="<?php echo esc_url(home_url('/about/')); ?>"><?php esc_html_e('About', 'waqya'); ?></a></li>
+                <li><a href="<?php echo esc_url(home_url('/contact/')); ?>"><?php esc_html_e('Contact', 'waqya'); ?></a></li>
+            </ul>
+        </nav>
+
         <?php if (has_nav_menu('footer')) : ?>
             <nav class="site-footer__nav" aria-label="<?php esc_attr_e('Footer', 'waqya'); ?>">
                 <?php

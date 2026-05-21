@@ -205,7 +205,7 @@ def optimize_published_post(
         log.exception("SEO update failed for post #%d", post_id)
 
     if seo_cfg.get("ping_sitemaps", True):
-        ping_sitemap(f"{base_url}/wp-sitemap.xml")
+        ping_sitemap(f"{base_url}/sitemap_index.xml")
 
     if seo_cfg.get("indexnow", True):
         submit_indexnow([post_url])

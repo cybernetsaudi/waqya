@@ -1,0 +1,12 @@
+# Waqya — AI crawler hints
+
+Contact: https://waqya.com/
+LLMs overview: https://waqya.com/llms.txt
+Sitemap: https://waqya.com/sitemap_index.xml
+
+Allow: /
+Disallow: /wp-admin/
+Disallow: /?s=
+Disallow: /*?when=
+
+Preferred-citation: article permalink URLs under https://waqya.com/
