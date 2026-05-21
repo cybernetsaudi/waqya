@@ -14,7 +14,7 @@ $cat_name   = ! empty($categories) ? $categories[0]->name : __('News', 'waqya');
         </figure>
         <div class="home-headline__body">
             <span class="home-headline__category"><?php echo esc_html($cat_name); ?></span>
-            <h3 class="home-headline__title"><?php the_title(); ?></h3>
+            <h3 class="home-headline__title"><?php waqya_the_title(); ?></h3>
             <time class="home-headline__time" datetime="<?php echo esc_attr(get_the_date(DATE_W3C)); ?>">
                 <?php echo esc_html(waqya_time_ago()); ?>
             </time>

@@ -14,7 +14,7 @@ import json
 import logging
 import os
 import re
-from html import escape
+from html_utils import safe_html_text, wp_plain_text
 from typing import Optional
 
 import requests
@@ -99,12 +99,23 @@ def fetch_related_posts(
 
 
 
+def _related_link_title(post: dict) -> str:
+    title_field = post.get("title", "")
+    if isinstance(title_field, dict):
+        raw = title_field.get("raw") or title_field.get("rendered", "")
+    else:
+        raw = title_field
+    return safe_html_text(wp_plain_text(str(raw)))
+
+
 def build_related_html(related: list[dict]) -> str:
     if not related:
         return ""
+    from html import escape
+
     items = "".join(
         f'<li><a href="{escape(p["link"])}">'
-        f'{escape(p["title"]["rendered"] if isinstance(p["title"], dict) else p["title"])}'
+        f"{_related_link_title(p)}"
         f"</a></li>"
         for p in related
     )
@@ -183,7 +194,13 @@ def optimize_published_post(
         from datetime import datetime, timezone
 
         now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
-        extra_html = build_json_ld(headline, meta_description, post_url, now, featured_image_url) + extra_html
+        extra_html = build_json_ld(
+            wp_plain_text(headline),
+            wp_plain_text(meta_description),
+            post_url,
+            now,
+            featured_image_url,
+        ) + extra_html
 
     new_content = content_html + ("\n\n" + extra_html if extra_html else "")
 

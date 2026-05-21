@@ -98,6 +98,67 @@ function waqya_site_name(): string
  * Site tagline with sensible default.
  */
 /**
+ * Decode HTML entities (&#8217;, &amp;#8217;, etc.) for safe display.
+ */
+function waqya_decode_entities(string $text): string
+{
+    if ($text === '') {
+        return '';
+    }
+
+    $out = $text;
+    for ($i = 0; $i < 4; $i++) {
+        $next = html_entity_decode($out, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if ($next === $out) {
+            break;
+        }
+        $out = $next;
+    }
+
+    return $out;
+}
+
+/**
+ * Plain post title for templates (decoded, escaped).
+ */
+function waqya_the_title(?int $post_id = null): void
+{
+    $post_id = $post_id ?? get_the_ID();
+    echo esc_html(waqya_decode_entities(get_the_title($post_id)));
+}
+
+/**
+ * Plain excerpt for cards and deks (decoded, escaped).
+ */
+function waqya_the_excerpt(int $word_limit = 0, ?int $post_id = null): void
+{
+    $post_id = $post_id ?? get_the_ID();
+    $text    = waqya_decode_entities(get_the_excerpt($post_id));
+    if ($word_limit > 0) {
+        $text = wp_trim_words($text, $word_limit);
+    }
+    echo esc_html($text);
+}
+
+/**
+ * @param string[] $filters
+ */
+function waqya_register_entity_decode_filters(): void
+{
+    $filters = [
+        'the_title',
+        'get_the_title',
+        'the_excerpt',
+        'get_the_excerpt',
+        'wp_trim_excerpt',
+    ];
+    foreach ($filters as $filter) {
+        add_filter($filter, 'waqya_decode_entities', 99);
+    }
+}
+add_action('init', 'waqya_register_entity_decode_filters');
+
+/**
  * Desk label for article byline (from pipeline meta or category).
  */
 function waqya_desk_byline_label(): string

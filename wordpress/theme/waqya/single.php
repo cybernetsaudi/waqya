@@ -18,9 +18,9 @@ get_header();
                 <article <?php post_class('single-post'); ?>>
                     <header class="single-post__header">
                         <?php waqya_render_category_follow(); ?>
-                        <h1 class="single-post__title"><?php the_title(); ?></h1>
+                        <h1 class="single-post__title"><?php waqya_the_title(); ?></h1>
                         <?php if (has_excerpt()) : ?>
-                            <p class="single-post__dek"><?php echo esc_html(get_the_excerpt()); ?></p>
+                            <p class="single-post__dek"><?php waqya_the_excerpt(); ?></p>
                         <?php endif; ?>
                         <p class="single-post__byline">
                             <?php
@@ -53,7 +53,7 @@ get_header();
                             ?>
                             <figcaption class="single-post__caption"><?php echo esc_html($caption); ?></figcaption>
                         <?php elseif (has_excerpt()) : ?>
-                            <figcaption class="single-post__caption"><?php echo esc_html(get_the_excerpt()); ?></figcaption>
+                            <figcaption class="single-post__caption"><?php waqya_the_excerpt(); ?></figcaption>
                         <?php endif; ?>
                     </figure>
 

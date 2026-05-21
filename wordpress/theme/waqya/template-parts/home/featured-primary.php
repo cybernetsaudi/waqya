@@ -12,9 +12,9 @@
     <div class="home-featured__body">
         <?php waqya_category_badge(); ?>
         <h2 class="home-featured__title">
-            <a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
+            <a href="<?php the_permalink(); ?>"><?php waqya_the_title(); ?></a>
         </h2>
-        <p class="home-featured__excerpt"><?php echo esc_html(get_the_excerpt()); ?></p>
+        <p class="home-featured__excerpt"><?php waqya_the_excerpt(); ?></p>
         <p class="home-featured__meta">
             <time datetime="<?php echo esc_attr(get_the_date(DATE_W3C)); ?>">
                 <?php echo esc_html(waqya_time_ago()); ?>

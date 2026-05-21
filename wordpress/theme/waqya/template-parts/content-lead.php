@@ -9,7 +9,7 @@
     <header class="lead-story__header">
         <?php waqya_category_badge(); ?>
         <h1 class="lead-story__title">
-            <a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
+            <a href="<?php the_permalink(); ?>"><?php waqya_the_title(); ?></a>
         </h1>
     </header>
 
@@ -18,7 +18,7 @@
             <?php waqya_the_thumbnail('waqya-hero', 'lead-story__image'); ?>
         </a>
         <?php if (has_excerpt()) : ?>
-            <figcaption class="lead-story__caption"><?php echo esc_html(get_the_excerpt()); ?></figcaption>
+            <figcaption class="lead-story__caption"><?php waqya_the_excerpt(); ?></figcaption>
         <?php endif; ?>
     </figure>
 

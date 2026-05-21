@@ -23,8 +23,8 @@ $slug   = waqya_post_category_slug();
             <span class="post-slider__scrim" aria-hidden="true"></span>
             <div class="post-slider__content">
                 <?php waqya_category_badge(false); ?>
-                <h3 class="post-slider__headline"><?php the_title(); ?></h3>
-                <p class="post-slider__excerpt"><?php echo esc_html(wp_trim_words(get_the_excerpt(), 18)); ?></p>
+                <h3 class="post-slider__headline"><?php waqya_the_title(); ?></h3>
+                <p class="post-slider__excerpt"><?php waqya_the_excerpt(18); ?></p>
                 <p class="post-slider__meta">
                     <time datetime="<?php echo esc_attr(get_the_date(DATE_W3C)); ?>">
                         <?php echo esc_html(waqya_time_ago()); ?>

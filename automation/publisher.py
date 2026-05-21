@@ -190,7 +190,7 @@ def _build_article_html(article: Article, images: Optional[ArticleImages]) -> st
     insert_at = [1, 3, 5]
     inline_idx = 0
     for i, para in enumerate(paragraphs):
-        html_parts.append(f"<p>{para}</p>")
+        html_parts.append(f"<p>{html_module.escape(para)}</p>")
         if i in insert_at and inline_idx < len(inline_figures):
             html_parts.append(inline_figures[inline_idx])
             inline_idx += 1
@@ -278,18 +278,20 @@ def publish_draft(
     if post_status is None:
         post_status = "publish" if config.get("pipeline", {}).get("auto_publish", False) else "draft"
 
+    from html_utils import wp_plain_text
+
     post_data = {
-        "title": article.headline,
+        "title": wp_plain_text(article.headline),
         "content": content_html,
         "status": post_status,
-        "excerpt": article.excerpt,
+        "excerpt": wp_plain_text(article.excerpt),
         "categories": [cat_id] if cat_id else [],
         "tags": tag_ids,
         "meta": {
             "_waqya_quality_score": str(quality_score),
             "_waqya_is_breaking": "1" if is_breaking else "0",
-            "_yoast_wpseo_metadesc": article.meta_description,
-            "_yoast_wpseo_title": article.headline[:60],
+            "_yoast_wpseo_metadesc": wp_plain_text(article.meta_description)[:155],
+            "_yoast_wpseo_title": wp_plain_text(article.headline)[:60],
             "_yoast_wpseo_focuskw": focus[:60],
             "_waqya_primary_category": article.category,
             "_waqya_iptc_topic": article.iptc_topic,

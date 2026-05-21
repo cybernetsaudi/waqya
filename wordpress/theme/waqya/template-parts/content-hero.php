@@ -17,9 +17,9 @@ $slug = waqya_post_category_slug();
                 <?php waqya_posted_on(); ?>
             </div>
             <h2 class="hero-card__title">
-                <a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
+                <a href="<?php the_permalink(); ?>"><?php waqya_the_title(); ?></a>
             </h2>
-            <p class="hero-card__excerpt"><?php echo esc_html(get_the_excerpt()); ?></p>
+            <p class="hero-card__excerpt"><?php waqya_the_excerpt(); ?></p>
             <a class="hero-card__cta" href="<?php the_permalink(); ?>">
                 <?php esc_html_e('Read analysis', 'waqya'); ?>
             </a>

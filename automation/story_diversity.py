@@ -159,9 +159,11 @@ def fetch_recent_wp_clusters(hours: int) -> tuple[list[frozenset[str]], Counter[
     slug_by_id = _wp_category_slug_map(base, (user, password))
 
     for post in posts:
-        title = (post.get("title") or {}).get("rendered", "")
+        from html_utils import wp_plain_text
+
+        title = wp_plain_text((post.get("title") or {}).get("rendered", ""))
         if title:
-            clusters.append(cluster_key(re.sub(r"<[^>]+>", "", title)))
+            clusters.append(cluster_key(title))
         for cat_id in post.get("categories") or []:
             slug = slug_by_id.get(cat_id, "")
             if slug:

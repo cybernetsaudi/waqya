@@ -11,7 +11,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('WAQYA_VERSION', '1.6.3');
+define('WAQYA_VERSION', '1.6.4');
 define('WAQYA_DIR', get_template_directory());
 define('WAQYA_URI', get_template_directory_uri());
 

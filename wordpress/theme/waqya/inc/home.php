@@ -133,7 +133,7 @@ function waqya_render_developing_strip(array $exclude): array
                 ?>
                 <li class="developing-list__item">
                     <a class="developing-list__link" href="<?php the_permalink(); ?>">
-                        <?php the_title(); ?>
+                        <?php waqya_the_title(); ?>
                     </a>
                     <time class="developing-list__time" datetime="<?php echo esc_attr(get_the_date(DATE_W3C)); ?>">
                         <?php echo esc_html(waqya_time_ago()); ?>
