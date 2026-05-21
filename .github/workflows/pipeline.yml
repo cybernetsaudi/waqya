@@ -36,12 +36,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r automation/requirements.txt
 
-      # Download the dedup database from a previous run (if it exists)
-      - name: Download dedup database
+      # Story + image dedup databases (persist across runs)
+      - name: Restore dedup databases
         uses: actions/cache@v4
         with:
-          path: automation/seen.db
-          key: dedup-db-v1
+          path: |
+            automation/seen.db
+            automation/images.db
+          key: waqya-dedup-v2
 
       - name: Run pipeline
         working-directory: automation

@@ -18,6 +18,8 @@ from urllib.parse import urljoin
 import requests
 import yaml
 
+from image_dedup import is_image_used, mark_image_used
+
 log = logging.getLogger(__name__)
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
@@ -31,6 +33,7 @@ class FetchedImage:
     mime_type: str
     alt_text: str
     credit: str
+    pexels_id: Optional[int] = None
     wp_media_id: Optional[int] = None
     wp_url: Optional[str] = None
 
@@ -97,12 +100,19 @@ def _expand_queries(base: str, tags: list[str], count: int) -> list[str]:
 
 
 def _photo_to_image(photo: dict, idx: int, query: str) -> Optional[FetchedImage]:
+    pexels_id = photo.get("id")
+    if pexels_id is not None and is_image_used(pexels_id=pexels_id):
+        return None
+
     src = photo.get("src", {}).get("large") or photo.get("src", {}).get("medium")
     if not src:
         return None
     data = _download(src)
     if not data:
         return None
+    if is_image_used(data, pexels_id=pexels_id):
+        return None
+
     photographer = photo.get("photographer", "Pexels")
     link = photo.get("url", "https://www.pexels.com")
     credit = f'Photo: <a href="{link}">{photographer}</a> / Pexels'
@@ -112,45 +122,58 @@ def _photo_to_image(photo: dict, idx: int, query: str) -> Optional[FetchedImage]
         mime_type="image/jpeg",
         alt_text=query[:120],
         credit=credit,
+        pexels_id=int(pexels_id) if pexels_id is not None else None,
     )
 
 
-def _pexels_search(query: str, per_page: int = 4, page: int = 1) -> list[FetchedImage]:
+def _pexels_search(
+    query: str,
+    per_page: int = 4,
+    start_page: int = 1,
+    max_pages: int = 5,
+) -> list[FetchedImage]:
     api_key = _pexels_key()
     if not api_key:
         log.warning("PEXELS_API_KEY not set")
         return []
 
+    out: list[FetchedImage] = []
     try:
-        resp = requests.get(
-            "https://api.pexels.com/v1/search",
-            params={
-                "query": query,
-                "per_page": per_page,
-                "page": page,
-                "orientation": "landscape",
-            },
-            headers={"Authorization": api_key},
-            timeout=20,
-        )
-        resp.raise_for_status()
-        photos = resp.json().get("photos", [])
-        out: list[FetchedImage] = []
-        for i, photo in enumerate(photos):
-            img = _photo_to_image(photo, i + 1, query)
-            if img:
-                out.append(img)
+        for page in range(start_page, start_page + max_pages):
+            if len(out) >= per_page:
+                break
+            resp = requests.get(
+                "https://api.pexels.com/v1/search",
+                params={
+                    "query": query,
+                    "per_page": min(15, per_page * 2),
+                    "page": page,
+                    "orientation": "landscape",
+                },
+                headers={"Authorization": api_key},
+                timeout=20,
+            )
+            resp.raise_for_status()
+            photos = resp.json().get("photos", [])
+            if not photos:
+                break
+            for i, photo in enumerate(photos):
+                if len(out) >= per_page:
+                    break
+                img = _photo_to_image(photo, len(out) + 1, query)
+                if img:
+                    out.append(img)
         return out
     except Exception:
         log.exception("Pexels search failed: %s", query)
-        return []
+        return out
 
 
 def _from_og_image(page_url: str) -> Optional[FetchedImage]:
     try:
         resp = requests.get(page_url, timeout=15, headers={"User-Agent": USER_AGENT})
         resp.raise_for_status()
-        html = resp.text[:500_000]
+        page_html = resp.text[:500_000]
     except Exception:
         return None
 
@@ -158,11 +181,11 @@ def _from_og_image(page_url: str) -> Optional[FetchedImage]:
         r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
         r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
     ):
-        m = re.search(pat, html, re.I)
+        m = re.search(pat, page_html, re.I)
         if m:
             image_url = urljoin(page_url, m.group(1).strip())
             data = _download(image_url)
-            if data:
+            if data and not is_image_used(data):
                 return FetchedImage(
                     data=data,
                     filename="featured.jpg",
@@ -192,41 +215,65 @@ def fetch_article_images(
     queries = _expand_queries(base, tag_list, total_needed)
 
     collected: list[FetchedImage] = []
-    # One Pexels request first (fast path)
-    batch = _pexels_search(base, per_page=total_needed, page=1)
+    session_fps: set[str] = set()
+
+    def _add(img: FetchedImage) -> bool:
+        from image_dedup import fingerprint
+
+        fp = fingerprint(img.data)
+        if fp in session_fps:
+            return False
+        session_fps.add(fp)
+        collected.append(img)
+        return True
+
+    batch = _pexels_search(base, per_page=total_needed, start_page=1, max_pages=6)
     for img in batch:
         if len(collected) >= total_needed:
             break
-        if not any(existing.data == img.data for existing in collected):
-            collected.append(img)
+        _add(img)
 
     for i, q in enumerate(queries):
         if len(collected) >= total_needed:
             break
-        batch = _pexels_search(q, per_page=2, page=1 + (i % 2))
+        batch = _pexels_search(q, per_page=2, start_page=1 + (i % 3), max_pages=4)
         for img in batch:
             if len(collected) >= total_needed:
                 break
-            if not any(existing.data == img.data for existing in collected):
-                collected.append(img)
+            _add(img)
 
     if len(collected) < total_needed:
         og = _from_og_image(source_url)
-        if og and not any(existing.data == og.data for existing in collected):
-            collected.append(og)
+        if og:
+            _add(og)
 
     result = ArticleImages()
     if collected:
         result.featured = collected[0]
         result.inline = collected[1 : 1 + inline_count]
+        for img in collected:
+            mark_image_used(
+                img.data,
+                img.pexels_id,
+                context=headline[:120],
+            )
         log.info(
-            "Images for '%s': 1 featured + %d inline",
+            "Images for '%s': 1 featured + %d inline (pool: %d used total)",
             headline[:50],
             len(result.inline),
+            _used_count(),
         )
     else:
         log.warning("No images found for: %s", headline)
     return result
+
+
+def _used_count() -> int:
+    try:
+        from image_dedup import count_used
+        return count_used()
+    except Exception:
+        return 0
 
 
 # Backwards compatibility

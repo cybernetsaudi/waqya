@@ -66,6 +66,7 @@ def backfill_post(
         source_url = m.group(1)
 
     images = fetch_article_images(title, image_query, source_url, tags)
+    # fetch_article_images marks images in images.db; backfill respects that pool
     if not images.featured:
         log.warning("No images for post #%d — %s", post_id, title)
         return False

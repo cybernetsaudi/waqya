@@ -25,8 +25,10 @@ def run() -> int:
     from publisher import publish_batch
     from notifier import notify_new_drafts, notify_error
     from dedup import prune
+    from image_dedup import prune as prune_images
 
     prune(max_age_days=7)
+    prune_images(max_age_days=90)
 
     # Ensure IPTC categories exist in WordPress before publishing
     try:
