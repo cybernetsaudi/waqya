@@ -70,6 +70,16 @@ def ensure_trust_pages() -> int:
             r.raise_for_status()
             if r.json():
                 continue
+            from yoast_seo import PAGE_SEO
+
+            seo = PAGE_SEO.get(page["slug"], {})
+            meta = {}
+            if seo:
+                meta = {
+                    "_yoast_wpseo_title": seo.get("seo_title", page["title"]),
+                    "_yoast_wpseo_metadesc": seo.get("metadesc", "")[:155],
+                    "_yoast_wpseo_focuskw": seo.get("focuskw", ""),
+                }
             requests.post(
                 f"{base}/wp-json/wp/v2/pages",
                 json={
@@ -77,6 +87,7 @@ def ensure_trust_pages() -> int:
                     "slug": page["slug"],
                     "content": page["content"].strip(),
                     "status": "publish",
+                    "meta": meta,
                 },
                 auth=auth,
                 timeout=30,

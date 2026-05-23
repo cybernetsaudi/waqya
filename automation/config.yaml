@@ -49,6 +49,9 @@ seo:
   add_schema: true
   add_related_links: true
   indexnow: false  # set true after INDEXNOW_KEY is on site root
+  seo_title_max_chars: 55
+  meta_description_min_chars: 135
+  meta_description_max_chars: 155
 
 # RSS feeds: defined in waqya_categories.yaml when taxonomy.source is set
 rss_feeds: []

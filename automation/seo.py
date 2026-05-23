@@ -35,9 +35,9 @@ def _site_url() -> str:
 
 
 def _focus_keyword(headline: str, tags: list[str]) -> str:
-    if tags:
-        return tags[0][:60]
-    return " ".join(headline.split()[:4])[:60]
+    from yoast_seo import suggest_focus_keyword
+
+    return suggest_focus_keyword(headline=headline, tags=tags)
 
 
 def build_json_ld(
@@ -173,6 +173,10 @@ def optimize_published_post(
     post_url: str,
     featured_image_url: Optional[str] = None,
     category_ids: Optional[list[int]] = None,
+    *,
+    focus_keyword: str = "",
+    seo_title: str = "",
+    primary_key: str = "",
 ) -> None:
     config = _load_config()
     if not config.get("seo", {}).get("enabled", True):
@@ -180,7 +184,15 @@ def optimize_published_post(
 
     base_url = _site_url()
     auth = (os.environ["WP_USER"], os.environ["WP_APP_PASSWORD"])
-    focus = _focus_keyword(headline, tags)
+    from yoast_seo import build_meta_description, build_seo_title, suggest_focus_keyword
+
+    focus = focus_keyword or suggest_focus_keyword(
+        headline=headline,
+        primary_key=primary_key,
+        tags=tags,
+    )
+    yoast_title = seo_title or build_seo_title(focus, headline)
+    metadesc = build_meta_description(focus, meta_description, headline)
     seo_cfg = config.get("seo", {})
 
     content_html = strip_existing_waqya_blocks(content_html)
@@ -205,8 +217,8 @@ def optimize_published_post(
     new_content = content_html + ("\n\n" + extra_html if extra_html else "")
 
     meta = {
-        "_yoast_wpseo_title": headline[:60],
-        "_yoast_wpseo_metadesc": meta_description[:155],
+        "_yoast_wpseo_title": yoast_title,
+        "_yoast_wpseo_metadesc": metadesc,
         "_yoast_wpseo_focuskw": focus,
     }
 

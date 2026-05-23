@@ -173,8 +173,19 @@ def _editorial_footer_html(article: Article, primary: dict) -> str:
     )
 
 
+def _block_to_html(block: str) -> str:
+    block = block.strip()
+    if not block:
+        return ""
+    if block.startswith("## "):
+        return f"<h2>{html_module.escape(block[3:].strip())}</h2>"
+    if block.startswith("### "):
+        return f"<h3>{html_module.escape(block[4:].strip())}</h3>"
+    return f"<p>{html_module.escape(block)}</p>"
+
+
 def _build_article_html(article: Article, images: Optional[ArticleImages]) -> str:
-    paragraphs = [p.strip() for p in article.body.split("\n\n") if p.strip()]
+    blocks = [p.strip() for p in article.body.split("\n\n") if p.strip()]
     html_parts: list[str] = []
     read_box = _waqya_read_html(article)
     if read_box:
@@ -189,12 +200,15 @@ def _build_article_html(article: Article, images: Optional[ArticleImages]) -> st
     # Insert inline images after paragraphs 2, 4, 6 (spread through article)
     insert_at = [1, 3, 5]
     inline_idx = 0
-    for i, para in enumerate(paragraphs):
-        html_parts.append(f"<p>{html_module.escape(para)}</p>")
-        if i in insert_at and inline_idx < len(inline_figures):
+    para_idx = 0
+    for block in blocks:
+        html_parts.append(_block_to_html(block))
+        if block.startswith("#"):
+            continue
+        if para_idx in insert_at and inline_idx < len(inline_figures):
             html_parts.append(inline_figures[inline_idx])
             inline_idx += 1
-
+        para_idx += 1
     while inline_idx < len(inline_figures):
         html_parts.append(inline_figures[inline_idx])
         inline_idx += 1
@@ -257,6 +271,32 @@ def publish_draft(
         tag_names.insert(0, "Breaking")
     tag_ids = _get_or_create_tags(base_url, auth, tag_names)
 
+    from html_utils import wp_plain_text
+    from yoast_seo import (
+        build_image_alt,
+        build_meta_description,
+        build_post_slug,
+        build_seo_title,
+        suggest_focus_keyword,
+    )
+
+    focus = article.focus_keyword or suggest_focus_keyword(
+        headline=article.headline,
+        primary_key=article.category,
+        topic_tags=article.tags,
+        tags=article.tags,
+        subjects=article.subjects,
+    )
+    seo_title = article.seo_title or build_seo_title(focus, article.headline)
+    metadesc = build_meta_description(focus, article.meta_description, article.headline)
+    post_slug = build_post_slug(focus, article.headline)
+
+    if article.images:
+        if article.images.featured:
+            article.images.featured.alt_text = build_image_alt(focus, article.headline, "featured")
+        for i, img in enumerate(article.images.inline):
+            img.alt_text = build_image_alt(focus, article.headline, f"inline {i + 1}")
+
     images = _upload_all_images(base_url, auth, article)
     content_html = _build_article_html(article, images)
     content_html += _editorial_footer_html(article, primary)
@@ -267,21 +307,15 @@ def publish_draft(
         featured_media_id = images.featured.wp_media_id
         featured_url = images.featured.wp_url
 
-    focus = (
-        article.subjects[0]
-        if article.subjects
-        else (article.tags[0] if article.tags else article.headline.split()[0])
-    )
     subjects_str = ", ".join(article.subjects) if article.subjects else ""
     regions_str = ", ".join(article.regions) if article.regions else ""
 
     if post_status is None:
         post_status = "publish" if config.get("pipeline", {}).get("auto_publish", False) else "draft"
 
-    from html_utils import wp_plain_text
-
     post_data = {
         "title": wp_plain_text(article.headline),
+        "slug": post_slug,
         "content": content_html,
         "status": post_status,
         "excerpt": wp_plain_text(article.excerpt),
@@ -290,8 +324,8 @@ def publish_draft(
         "meta": {
             "_waqya_quality_score": str(quality_score),
             "_waqya_is_breaking": "1" if is_breaking else "0",
-            "_yoast_wpseo_metadesc": wp_plain_text(article.meta_description)[:155],
-            "_yoast_wpseo_title": wp_plain_text(article.headline)[:60],
+            "_yoast_wpseo_metadesc": metadesc,
+            "_yoast_wpseo_title": seo_title,
             "_yoast_wpseo_focuskw": focus[:60],
             "_waqya_primary_category": article.category,
             "_waqya_iptc_topic": article.iptc_topic,
@@ -324,12 +358,15 @@ def publish_draft(
         optimize_published_post(
             post_id=post_id,
             headline=article.headline,
-            meta_description=article.meta_description,
+            meta_description=metadesc,
             tags=article.tags,
             content_html=content_html,
             post_url=post_url,
             featured_image_url=featured_url,
             category_ids=[cat_id] if cat_id else [],
+            focus_keyword=focus,
+            seo_title=seo_title,
+            primary_key=article.category,
         )
 
         return PublishResult(

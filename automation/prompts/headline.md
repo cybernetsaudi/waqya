@@ -26,9 +26,16 @@ OPTIONAL TOPIC TAGS (pick 0-4 from this list when applicable):
 HEADLINE STYLE:
 - Punchy, provocative, truthful (max 80 chars). Tabloid energy, no lies.
 
+SEO RULES (Yoast):
+- FOCUS_KEYWORD: 1–3 words, the main topic (e.g. "technology", "Middle East", "markets"). Must match what the article body targets.
+- SEO_TITLE: max **55 characters**. Start with the exact focus keyword, then a short hook. Format: `Keyword: Hook` (e.g. `Technology: Silicon Valley's hardware blind spot`).
+- META: **140–155 characters**. First sentence must include the focus keyword or a direct synonym. Compelling, click-worthy, accurate.
+
 OUTPUT (strict — one field per line):
 HEADLINE: ...
-META: SEO description max 155 chars
+SEO_TITLE: ...
+FOCUS_KEYWORD: ...
+META: SEO description 140-155 chars
 EXCERPT: social hook max 200 chars
 IMAGE_QUERY: 2-4 visual keywords for stock photo
 

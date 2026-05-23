@@ -47,6 +47,8 @@ class Article:
     source_story: dict | None = None
     quality_score: int = 0
     is_breaking: bool = False
+    focus_keyword: str = ""
+    seo_title: str = ""
     iptc_topic: str = ""
     iptc_code: str = ""
     iptc_label: str = ""
@@ -105,6 +107,20 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
     )
     if cal_focus:
         user_input += f"{cal_focus}\n"
+
+    from yoast_seo import suggest_focus_keyword
+
+    pre_focus = suggest_focus_keyword(
+        headline=story.get("title", ""),
+        summary=story.get("summary", ""),
+        primary_key=suggested_primary,
+    )
+    user_input += (
+        f"\nSEO FOCUS KEYPHRASE (required): {pre_focus}\n"
+        f"- Use it in the opening paragraph.\n"
+        f"- Use it 3–5 times naturally in the full article.\n"
+        f"- Include it (or a close synonym) in at least one ## subheading.\n"
+    )
 
     # Step 1: Generate the article body
     try:
@@ -173,11 +189,18 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         max_tags=15,
     )
     waqya_read = parsed.get("waqya_read", "")
+    from yoast_seo import build_meta_description, build_seo_title
+
+    focus = parsed.get("focus_keyword") or pre_focus
+    seo_title = parsed.get("seo_title") or build_seo_title(focus, headline)
+    meta_desc = build_meta_description(focus, meta_desc, headline)
 
     return Article(
         headline=headline,
         body=body,
         meta_description=meta_desc,
+        focus_keyword=focus,
+        seo_title=seo_title,
         tags=tags,
         excerpt=excerpt,
         category=primary["primary_key"],
@@ -212,6 +235,8 @@ def _parse_headline_response(raw: str) -> dict:
         "region_tags": "",
         "topic_tags": "",
         "waqya_read": "",
+        "focus_keyword": "",
+        "seo_title": "",
     }
     key_map = {
         "HEADLINE": "headline",
@@ -228,6 +253,8 @@ def _parse_headline_response(raw: str) -> dict:
         "REGION_TAGS": "region_tags",
         "TOPIC_TAGS": "topic_tags",
         "WAQYA_READ": "waqya_read",
+        "FOCUS_KEYWORD": "focus_keyword",
+        "SEO_TITLE": "seo_title",
     }
 
     for line in raw.splitlines():
