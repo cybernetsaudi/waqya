@@ -11,7 +11,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('WAQYA_VERSION', '1.6.4');
+define('WAQYA_VERSION', '1.9.4');
 define('WAQYA_DIR', get_template_directory());
 define('WAQYA_URI', get_template_directory_uri());
 
@@ -25,6 +25,14 @@ require_once WAQYA_DIR . '/inc/taxonomy-config.php';
 require_once WAQYA_DIR . '/inc/slider.php';
 require_once WAQYA_DIR . '/inc/date-filter.php';
 require_once WAQYA_DIR . '/inc/seo.php';
+require_once WAQYA_DIR . '/inc/trust-pages.php';
+require_once WAQYA_DIR . '/inc/news-sitemap.php';
+require_once WAQYA_DIR . '/inc/topic-pages.php';
+require_once WAQYA_DIR . '/inc/social.php';
+require_once WAQYA_DIR . '/inc/analytics.php';
+require_once WAQYA_DIR . '/inc/consent.php';
+require_once WAQYA_DIR . '/inc/api.php';
+require_once WAQYA_DIR . '/inc/post-meta.php';
 
 /**
  * Theme setup.
@@ -103,6 +111,18 @@ function waqya_scripts(): void
 
     if (is_front_page()) {
         wp_enqueue_style('waqya-home', WAQYA_URI . '/assets/css/home.css', ['waqya-main'], WAQYA_VERSION);
+    }
+
+    if (is_page()) {
+        wp_enqueue_style('waqya-page', WAQYA_URI . '/assets/css/page.css', ['waqya-main'], WAQYA_VERSION);
+    }
+
+    if (is_search()) {
+        wp_enqueue_style('waqya-category', WAQYA_URI . '/assets/css/category.css', ['waqya-main'], WAQYA_VERSION);
+    }
+
+    if (is_tag()) {
+        wp_enqueue_style('waqya-category', WAQYA_URI . '/assets/css/category.css', ['waqya-main'], WAQYA_VERSION);
     }
 
     if (is_category()) {

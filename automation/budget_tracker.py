@@ -49,7 +49,7 @@ def estimate_run_cost(
     config: dict,
     *,
     articles: int,
-    newsapi_requests: int = 18,
+    newsapi_requests: int = 28,
     pexels_searches: int = 0,
 ) -> float:
     est = {**DEFAULT_ESTIMATES, **config.get("budget", {}).get("estimates", {})}
@@ -70,7 +70,7 @@ def record_run(
     articles: int,
     published: int,
     held_draft: int,
-    newsapi_requests: int = 18,
+    newsapi_requests: int = 28,
 ) -> float:
     """Add this run's estimated cost to the current month."""
     pexels = articles * 4 if config.get("images", {}).get("enabled") else 0
@@ -152,6 +152,9 @@ def maybe_send_weekly_summary(config: dict) -> bool:
     summary = month_summary(config)
     from notifier import send_message
 
+    from desk_report import format_desk_report_lines
+
+    desk_lines = format_desk_report_lines(days=7)
     text = (
         f"<b>📊 Waqya weekly ops summary</b>\n\n"
         f"<b>Month {summary['month']}</b> (est. costs)\n"
@@ -159,7 +162,8 @@ def maybe_send_weekly_summary(config: dict) -> bool:
         f"Pipeline runs: {summary['runs']}\n"
         f"Articles generated: {summary['articles']}\n"
         f"Live: {summary['published']} · Drafts held: {summary['held']}\n\n"
-        f"Crisis mode: {'ON' if config.get('crisis_mode', {}).get('enabled') else 'off'}"
+        f"Crisis mode: {'ON' if config.get('crisis_mode', {}).get('enabled') else 'off'}\n\n"
+        + "\n".join(desk_lines)
     )
     ok = send_message(text)
     if ok:

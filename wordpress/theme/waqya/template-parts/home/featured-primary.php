@@ -16,9 +16,7 @@
         </h2>
         <p class="home-featured__excerpt"><?php waqya_the_excerpt(); ?></p>
         <p class="home-featured__meta">
-            <time datetime="<?php echo esc_attr(get_the_date(DATE_W3C)); ?>">
-                <?php echo esc_html(waqya_time_ago()); ?>
-            </time>
+            <?php waqya_render_dateline('inline'); ?>
             <span aria-hidden="true">·</span>
             <?php echo esc_html(sprintf(
                 _n('%d min read', '%d min read', waqya_reading_time(), 'waqya'),

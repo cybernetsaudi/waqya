@@ -1,8 +1,18 @@
 <?php
 /**
- * Blog index fallback
+ * Fallback template — singular pages/posts, else archives.
  *
  * @package Waqya
  */
 
-get_template_part('archive');
+if (is_singular('page')) {
+    require get_template_directory() . '/page.php';
+    return;
+}
+
+if (is_singular()) {
+    require get_template_directory() . '/single.php';
+    return;
+}
+
+require get_template_directory() . '/archive.php';

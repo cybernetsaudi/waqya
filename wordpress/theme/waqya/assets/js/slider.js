@@ -13,6 +13,9 @@
       return;
     }
 
+    const intervalAttr = root.getAttribute('data-slider-interval');
+    const autoMs = intervalAttr ? parseInt(intervalAttr, 10) : AUTO_MS;
+
     const prevBtn = root.querySelector('[data-slider-prev]');
     const nextBtn = root.querySelector('[data-slider-next]');
     const dots = Array.from(root.querySelectorAll('[data-slider-goto]'));
@@ -49,7 +52,7 @@
         return;
       }
       stopAuto();
-      timer = window.setInterval(() => goTo(index + 1), AUTO_MS);
+      timer = window.setInterval(() => goTo(index + 1), autoMs);
     }
 
     function stopAuto() {

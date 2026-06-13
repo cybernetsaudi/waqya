@@ -111,8 +111,27 @@ function waqya_seo_robots(array $robots): array
     }
 
     if (is_tag()) {
-        $robots['noindex'] = true;
-        $robots['follow']  = true;
+        $term = get_queried_object();
+        $min  = waqya_topic_min_posts_for_index();
+        if ($term instanceof WP_Term && (int) $term->count >= $min) {
+            $robots['index']  = true;
+            $robots['noindex'] = false;
+        } else {
+            $robots['noindex'] = true;
+            $robots['follow']  = true;
+        }
+    }
+
+    if (is_singular('post')) {
+        $post = get_queried_object();
+        if ($post instanceof WP_Post) {
+            $age_days = (time() - (int) get_post_time('U', true, $post)) / DAY_IN_SECONDS;
+            $mod_days = (time() - (int) get_post_modified_time('U', true, $post)) / DAY_IN_SECONDS;
+            if ($age_days > 120 && $mod_days > 90 && ! has_tag('Breaking', $post)) {
+                $robots['noindex'] = true;
+                $robots['follow']  = true;
+            }
+        }
     }
 
     return $robots;
@@ -130,20 +149,35 @@ function waqya_seo_site_schema(): void
 
     $site = waqya_site_name();
     $url  = home_url('/');
+    $logo = get_site_icon_url(512) ?: '';
+    $contact_email = (string) get_option('waqya_mail_from', 'hello@waqya.com');
+    $org = [
+        '@type'                => 'NewsMediaOrganization',
+        '@id'                  => $url . '#organization',
+        'name'                 => $site,
+        'alternateName'        => waqya_brand_full_name(),
+        'url'                  => $url,
+        'description'          => waqya_brand_tagline(),
+        'slogan'               => waqya_brand_story_short(),
+        'knowsAbout'           => ['news', 'current affairs', 'commentary', 'world news'],
+        'publishingPrinciples' => home_url('/editorial-policy/'),
+        'ethicsPolicy'         => home_url('/editorial-policy/'),
+        'correctionsPolicy'    => home_url('/corrections/'),
+        'contactPoint'         => [
+            '@type'       => 'ContactPoint',
+            'contactType' => 'customer support',
+            'email'       => $contact_email,
+            'url'         => home_url('/contact/'),
+        ],
+    ];
+    if ($logo !== '') {
+        $org['logo'] = ['@type' => 'ImageObject', 'url' => $logo];
+    }
+
     $data = [
         '@context' => 'https://schema.org',
         '@graph'   => [
-            [
-                '@type'            => 'NewsMediaOrganization',
-                '@id'              => $url . '#organization',
-                'name'             => $site,
-                'alternateName'    => waqya_brand_full_name(),
-                'url'              => $url,
-                'description'      => waqya_brand_tagline(),
-                'slogan'           => waqya_brand_story_short(),
-                'knowsAbout'       => ['news', 'current affairs', 'commentary', 'world news'],
-                'publishingPrinciples' => $url,
-            ],
+            $org,
             [
                 '@type'           => 'WebSite',
                 '@id'             => $url . '#website',
@@ -183,3 +217,51 @@ function waqya_seo_llms_link(): void
     );
 }
 add_action('wp_head', 'waqya_seo_llms_link', 3);
+
+/**
+ * NewsArticle schema on single posts.
+ */
+function waqya_seo_article_schema(): void
+{
+    if (! is_singular('post')) {
+        return;
+    }
+
+    $post_id = get_the_ID();
+    $url     = get_permalink();
+    $image   = get_the_post_thumbnail_url(null, 'large');
+
+    $author = [
+        '@type' => 'Organization',
+        'name'  => waqya_site_name(),
+        'url'   => home_url('/about/'),
+    ];
+
+    $data = [
+        '@context'         => 'https://schema.org',
+        '@type'            => 'NewsArticle',
+        'headline'         => wp_strip_all_tags(get_the_title()),
+        'description'      => wp_strip_all_tags(get_the_excerpt()),
+        'datePublished'    => get_the_date('c'),
+        'dateModified'     => get_the_modified_date('c'),
+        'mainEntityOfPage' => $url,
+        'author'           => $author,
+        'publisher'        => [
+            '@type' => 'NewsMediaOrganization',
+            'name'  => waqya_site_name(),
+            'url'   => home_url('/'),
+        ],
+        'inLanguage'       => get_bloginfo('language'),
+    ];
+    if ($image) {
+        $data['image'] = [$image];
+    }
+
+    $desk = waqya_desk_byline_label();
+    if ($desk !== '') {
+        $data['articleSection'] = $desk;
+    }
+
+    echo '<script type="application/ld+json">' . wp_json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "</script>\n";
+}
+add_action('wp_head', 'waqya_seo_article_schema', 6);

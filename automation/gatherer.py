@@ -40,6 +40,8 @@ class Story:
     published: Optional[str] = None
     trend_score: float = 0.0
     trend_matched: str = ""
+    story_format: str = ""
+    interview_tone: str = ""
 
 
 def load_config() -> dict:
@@ -109,8 +111,11 @@ def gather_google_news(config: dict) -> list[Story]:
             feed.get("name", "Google News"),
             feed.get("category", "world"),
         )
+        fmt = feed.get("format", "")
         for s in stories:
             s.trend_score += 3.0
+            if fmt:
+                s.story_format = fmt
         all_stories.extend(stories)
         log.info("GoogleNews %-30s → %d items", feed.get("name", "?"), len(stories))
     return all_stories
@@ -181,6 +186,7 @@ def gather_newsapi_topic_queries(config: dict) -> list[Story]:
         page_size = int(item.get("page_size", 8))
         if not query:
             continue
+        story_fmt = item.get("format", "")
         for raw in fetch_newsapi_for_query(api_key, query, page_size=page_size):
             stories.append(
                 Story(
@@ -190,11 +196,47 @@ def gather_newsapi_topic_queries(config: dict) -> list[Story]:
                     summary=raw["summary"],
                     category=feed_cat,
                     published=raw.get("published"),
-                    trend_score=7.0,
+                    trend_score=8.0 if story_fmt else 7.0,
                     trend_matched=query[:40],
+                    story_format=story_fmt,
                 )
             )
     log.info("NewsAPI topic queries → %d items", len(stories))
+    return stories
+
+
+def gather_on_the_record(config: dict) -> list[Story]:
+    """Dedicated interview-review queries from on_the_record config."""
+    otr = config.get("on_the_record", {})
+    if not otr.get("enabled"):
+        return []
+
+    api_key = os.environ.get("NEWSAPI_KEY", "")
+    if not api_key:
+        return []
+
+    stories: list[Story] = []
+    for item in otr.get("topic_queries", []):
+        query = item.get("query", "")
+        if not query:
+            continue
+        feed_cat = item.get("category", otr.get("default_desk", "united-states"))
+        page_size = int(item.get("page_size", 6))
+        for raw in fetch_newsapi_for_query(api_key, query, page_size=page_size):
+            stories.append(
+                Story(
+                    title=raw["title"],
+                    url=raw["url"],
+                    source="OnTheRecord",
+                    summary=raw["summary"],
+                    category=feed_cat,
+                    published=raw.get("published"),
+                    trend_score=9.0,
+                    trend_matched=query[:40],
+                    story_format="on_the_record",
+                )
+            )
+    log.info("On The Record queries → %d items", len(stories))
     return stories
 
 
@@ -383,6 +425,7 @@ def gather(max_new: int | None = None) -> list[dict]:
         + gather_rss(config)
         + gather_newsapi_top_headlines(config)
         + gather_newsapi_country_headlines(config)
+        + gather_on_the_record(config)
         + gather_newsapi_topic_queries(config)
         + gather_trending_queries(config, trending)
         + gather_newsapi(config)
@@ -407,11 +450,21 @@ def gather(max_new: int | None = None) -> list[dict]:
 
     candidates = _apply_crisis_filter(candidates, config)
 
-    def _skip_if_seen(title: str, url: str) -> bool:
-        return is_seen(title, url)
+    from developing_updates import apply_developing_updates
+
+    apply_developing_updates(candidates, config)
+
+    from interview_review import annotate_interview_stories
+
+    annotate_interview_stories(candidates, config)
+
+    def _skip_if_seen(title: str, url: str, summary: str = "") -> bool:
+        return is_seen(title, url, summary)
 
     eligible_count = sum(
-        1 for c in candidates if not _skip_if_seen(c.get("title", ""), c.get("url", ""))
+        1
+        for c in candidates
+        if not _skip_if_seen(c.get("title", ""), c.get("url", ""), c.get("summary", ""))
     )
     log.info(
         "Candidates: %d total, %d pass dedup (seen.db entries: %s)",

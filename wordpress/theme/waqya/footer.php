@@ -40,6 +40,8 @@
             </nav>
         <?php endif; ?>
 
+        <?php waqya_footer_privacy_links(); ?>
+
         <p class="site-footer__copy">
             &copy; <?php echo esc_html((string) gmdate('Y')); ?>
             <a href="<?php echo esc_url(home_url('/')); ?>"><?php echo esc_html(waqya_brand_full_name()); ?></a>.

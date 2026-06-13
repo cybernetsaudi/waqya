@@ -75,18 +75,34 @@ def fetch_newsapi_top_headlines(api_key: str) -> Counter:
     return topics
 
 
-def fetch_google_trends_rss() -> Counter:
+def fetch_google_trends_rss(geo: str = "US", weight: float = 3.0) -> Counter:
+    """Daily trending searches for a Google Trends geo code (US, GB, IN, PK, SA, …)."""
     topics: Counter = Counter()
+    geo = (geo or "US").strip().upper()
     try:
         parsed = feedparser.parse(
-            "https://trends.google.com/trending/rss?geo=US"
+            f"https://trends.google.com/trending/rss?geo={geo}"
         )
         for entry in parsed.entries[:20]:
             title = entry.get("title", "")
-            _merge(topics, _keywords_from_text(title, weight=3.0))
+            _merge(topics, _keywords_from_text(title, weight=weight))
+        log.debug("Google Trends %s → %d entries", geo, len(parsed.entries))
     except Exception:
-        log.exception("Google Trends RSS failed")
+        log.exception("Google Trends RSS failed for geo=%s", geo)
     return topics
+
+
+def fetch_google_trends_multi(geos: list) -> Counter:
+    """Merge trending topics from multiple regional Google Trends feeds."""
+    combined: Counter = Counter()
+    for item in geos:
+        if isinstance(item, str):
+            geo, weight = item, 3.0
+        else:
+            geo = item.get("geo", "US")
+            weight = float(item.get("weight", 3.0))
+        _merge(combined, fetch_google_trends_rss(geo, weight))
+    return combined
 
 
 def fetch_reddit_hot(subreddit: str, weight: float = 2.5) -> Counter:
@@ -122,7 +138,11 @@ def fetch_trending_keywords(config: dict | None = None) -> list[tuple[str, float
         _merge(combined, fetch_newsapi_top_headlines(api_key))
 
     if cfg.get("google_trends", True):
-        _merge(combined, fetch_google_trends_rss())
+        geos = cfg.get("google_trends_geos")
+        if geos:
+            _merge(combined, fetch_google_trends_multi(geos))
+        else:
+            _merge(combined, fetch_google_trends_rss())
 
     for sub in cfg.get("reddit_subreddits", ["worldnews", "news", "technology"]):
         _merge(combined, fetch_reddit_hot(sub))

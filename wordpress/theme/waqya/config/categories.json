@@ -51,6 +51,7 @@
         "sport",
         "entertainment-arts",
         "education",
+        "explainers",
         "disasters-emergencies"
       ]
     }
@@ -383,6 +384,13 @@
       "slug": "disasters-emergencies",
       "description": "Earthquakes, floods, accidents, humanitarian emergencies",
       "iptc_reference": "medtop:03000000",
+      "menu_group": "topics"
+    },
+    "explainers": {
+      "label": "Explainers",
+      "slug": "explainers",
+      "description": "Evergreen background and context on ongoing stories",
+      "iptc_reference": "medtop:01000000",
       "menu_group": "topics"
     }
   },

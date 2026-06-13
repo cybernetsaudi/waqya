@@ -37,13 +37,67 @@ function waqya_get_slider_query(array $args): WP_Query
     static $cache = [];
 
     unset($args['echo'], $args['title']);
-    $key = md5(wp_json_encode($args));
+    $prefer_featured = ! empty($args['prefer_featured']);
+    unset($args['prefer_featured']);
+
+    $key = md5(wp_json_encode($args) . ($prefer_featured ? ':featured' : ''));
 
     if (! isset($cache[$key])) {
-        $cache[$key] = waqya_slider_query($args);
+        if ($prefer_featured) {
+            $cache[$key] = waqya_featured_slider_query($args);
+        } else {
+            $cache[$key] = waqya_slider_query($args);
+        }
     }
 
     return $cache[$key];
+}
+
+/**
+ * Homepage slider: editor's pick first, then recent posts.
+ *
+ * @param array<string, mixed> $args
+ */
+function waqya_featured_slider_query(array $args): WP_Query
+{
+    $limit  = (int) ($args['posts_per_page'] ?? 5);
+    $not_in = array_map('intval', (array) ($args['post__not_in'] ?? []));
+
+    $featured = waqya_slider_query(array_merge($args, [
+        'posts_per_page' => 1,
+        'post__not_in'   => $not_in,
+        'meta_key'       => '_waqya_featured_home',
+        'meta_value'     => '1',
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+    ]));
+
+    $ids = array_map('intval', wp_list_pluck($featured->posts, 'ID'));
+
+    if (count($ids) < $limit) {
+        $fill = waqya_slider_query(array_merge($args, [
+            'posts_per_page' => $limit,
+            'post__not_in'   => array_merge($not_in, $ids),
+        ]));
+        foreach ($fill->posts as $post) {
+            if (count($ids) >= $limit) {
+                break;
+            }
+            if (! in_array((int) $post->ID, $ids, true)) {
+                $ids[] = (int) $post->ID;
+            }
+        }
+    }
+
+    if ($ids === []) {
+        return waqya_slider_query($args);
+    }
+
+    return waqya_slider_query(array_merge($args, [
+        'posts_per_page' => $limit,
+        'post__in'       => $ids,
+        'orderby'        => 'post__in',
+    ]));
 }
 
 /**

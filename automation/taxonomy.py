@@ -91,6 +91,19 @@ def suggest_primary_from_story(
 
     # Obvious cross-cutting signals when keywords miss
     signals: list[tuple[str, tuple[str, ...]]] = [
+        ("crime-justice", (
+            "murder",
+            "stabbing",
+            "manslaughter",
+            "knife crime",
+            "man charged",
+            "woman charged",
+            "police arrest",
+            "found guilty",
+            "sentenced to",
+            "shooting",
+            "homicide",
+        )),
         ("war-conflict", ("war ", " airstrike", "missile", "ceasefire", "military", "invasion")),
         ("immigration-migration", ("immigrant", "migration", "asylum", "deportation", "border")),
         ("markets-finance", ("stock", "dow ", "nasdaq", "shares", "earnings", "ipo")),

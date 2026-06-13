@@ -19,6 +19,22 @@ google_news:
     - name: Google — UK & Europe
       url: "https://news.google.com/rss/search?q=(United+Kingdom+OR+Brexit+OR+European+Union)+when:3d&hl=en&gl=GB&ceid=GB:en"
       category: europe
+    - name: Google — UK crime & incidents
+      url: "https://news.google.com/rss/search?q=(murder+OR+stabbing+OR+killing+OR+\"man+charged\"+OR+police)+when:2d&hl=en-GB&gl=GB&ceid=GB:en"
+      category: crime-justice
+    - name: Google — India incidents
+      url: "https://news.google.com/rss/search?q=(murder+OR+killed+OR+attack+OR+blast+OR+stabbing)+India+when:3d&hl=en-IN&gl=IN&ceid=IN:en"
+      category: south-asia
+    - name: Google — Pakistan incidents
+      url: "https://news.google.com/rss/search?q=(murder+OR+killed+OR+attack+OR+blast+OR+bombing)+Pakistan+when:3d&hl=en-PK&gl=PK&ceid=PK:en"
+      category: south-asia
+    - name: Google — Middle East incidents
+      url: "https://news.google.com/rss/search?q=(explosion+OR+killed+OR+attack+OR+airstrike+OR+bombing)+when:3d&hl=en&gl=AE&ceid=AE:en"
+      category: middle-east
+    - name: Google — Leader interviews
+      url: "https://news.google.com/rss/search?q=(Trump+OR+Biden+OR+president+OR+Starmer)+interview+when:3d&hl=en&gl=US&ceid=US:en"
+      category: united-states
+      format: on_the_record
 
 # Additional RSS (free, unlimited) — supplements waqya_categories.yaml
 rss_feeds:

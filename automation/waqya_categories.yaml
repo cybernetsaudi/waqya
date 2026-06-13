@@ -132,6 +132,19 @@ primary_categories:
     description: Courts, law enforcement, trials, organised crime
     iptc_reference: medtop:02000000
     menu_group: news-desk
+    scrape_keywords:
+      - murder
+      - stabbing
+      - killing
+      - charged
+      - suspect
+      - victim
+      - police
+      - court
+      - trial
+      - shooting
+      - knife crime
+      - manslaughter
 
   media-disinformation:
     label: Media & Disinformation
@@ -376,6 +389,8 @@ feed_category_map:
   war: war-conflict
   immigration: immigration-migration
   religion: religion-faith
+  crime-justice: crime-justice
+  europe: europe
 
 # Extended RSS sources aligned to categories
 rss_feeds:
@@ -427,4 +442,8 @@ trending:
     - immigration
     - europe
     - ukpolitics
+    - unitedkingdom
+    - uknews
+    - IndiaSpeaks
+    - pakistannews
     - Futurology

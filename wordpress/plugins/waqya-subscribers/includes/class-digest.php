@@ -137,11 +137,8 @@ final class Waqya_Subscribers_Digest
         }
 
         $site = get_bloginfo('name');
-        $subject = sprintf(
-            /* translators: %s: site name */
-            __('Your weekly digest — %s', 'waqya-subscribers'),
-            $site
-        );
+        // ASCII subject — em dashes and marketing phrasing hurt Yahoo/Gmail inbox placement.
+        $subject = sprintf('Your weekly digest - %s', $site);
 
         $lines = [sprintf(__('Top stories from %s this week:', 'waqya-subscribers'), $site), ''];
 
@@ -177,15 +174,23 @@ final class Waqya_Subscribers_Digest
             $lines[] = '';
         }
 
+        $unsub_url = Waqya_Subscribers_Actions::unsubscribe_url($row);
         $lines[] = __('Unsubscribe from this digest:', 'waqya-subscribers');
-        $lines[] = Waqya_Subscribers_Actions::unsubscribe_url($row);
+        $lines[] = $unsub_url;
 
         $headers = ['Content-Type: text/plain; charset=UTF-8'];
-        /** Allow Reply-To for compliance contact (optional). */
         $reply = apply_filters('waqya_subscribers_reply_to', get_option('admin_email'));
         if (is_email($reply)) {
             $headers[] = 'Reply-To: ' . $reply;
+            $headers[] = sprintf(
+                'List-Unsubscribe: <%s>, <mailto:%s?subject=unsubscribe>',
+                $unsub_url,
+                $reply
+            );
+        } else {
+            $headers[] = 'List-Unsubscribe: <' . $unsub_url . '>';
         }
+        $headers[] = 'List-Unsubscribe-Post: List-Unsubscribe=One-Click';
 
         wp_mail($email, $subject, implode("\n", $lines), $headers);
     }

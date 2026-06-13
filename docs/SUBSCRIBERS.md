@@ -25,15 +25,83 @@ Privacy-first email subscriptions built into WordPress (plugin **Waqya Subscribe
 
 ## Email delivery
 
-The plugin uses `wp_mail()`. On Hostinger, install **WP Mail SMTP** (or Hostinger’s mail plugin) so confirmation and digest emails are reliable.
+The plugin uses `wp_mail()`. Outbound mail is sent through **hello@waqya.com** via the `waqya-smtp` must-use plugin (Hostinger SMTP).
+
+### Where to put the mailbox password
+
+Add these lines to your local **`.env`** file (repo root — same file as `WP_URL` and `OPENAI_API_KEY`). **Never commit `.env` to git.**
+
+```env
+WP_SMTP_PASSWORD=your-hello@waqya.com-password
+WP_SMTP_USER=hello@waqya.com
+WP_SMTP_FROM=hello@waqya.com
+```
+
+Optional: `PLAUSIBLE_DOMAIN=waqya.com` for analytics.
+
+Then apply to the live server:
+
+```bash
+export SSHPASS='your-hostinger-ssh-password'
+python automation/setup_wordpress_mail.py
+```
+
+This uploads `wordpress/mu-plugins/waqya-smtp.php`, stores SMTP settings in WordPress options, and sets `admin_email` to hello@waqya.com.
+
+**Do not paste the mailbox password in chat** — only in `.env` on your machine.
+
+### Deliverability (Yahoo, Gmail, etc.)
+
+Outbound mail is sent from your SMTP host’s IP. If Yahoo or others reject with **553 TSS09** or “permanently deferred”, the provider is blocking that **sending IP** — not your domain name. Fixes:
+
+1. Ask your mail host (e.g. omniconsa) to resolve IP reputation or request delisting via [Yahoo Postmaster](https://postmaster.yahooinc.com/).
+2. Or point SMTP at your domain host’s relay (e.g. Hostinger `smtp.hostinger.com` for `hello@waqya.com`) if that IP has better reputation.
+3. Keep WordPress **Settings → General → Administration Email** and your admin user email as `hello@waqya.com` so system notices do not go to a personal Yahoo inbox.
 
 Test after setup:
 
 ```bash
+python automation/test_wordpress_mail.py --send hello@waqya.com
+```
+
+Or on the server:
+
+```bash
 wp cron event run waqya_send_weekly_digest
+wp option get waqya_mail_log --format=json
 ```
 
 (Requires WP-CLI on server.)
+
+### Troubleshooting: wp_mail true but nothing in inbox
+
+WordPress only reports whether the SMTP server **accepted** the message. A successful send looks like:
+
+```
+235 Authentication successful
+250 2.0.0 Ok: queued as XXXXX
+wp_mail result: true
+```
+
+If you see that but `hello@waqya.com` stays empty, the problem is **after** the queue — on the mail host, not in PHP:
+
+| Check | Where |
+|-------|--------|
+| Webmail login | omniconsa panel / webmail for `hello@waqya.com` |
+| Spam / junk folder | Same webmail |
+| Mailbox quota full | omniconsa admin |
+| Inbound delivery logs | omniconsa — search queue id e.g. `9EED4500B89` |
+| Wrong webmail host | MX is `mail.omniconsa.com` — not Hostinger hPanel mail unless you migrated |
+
+**DNS:** `waqya.com` MX → `mail.omniconsa.com`. **SPF is currently missing** — Yahoo often silently drops or spams mail without it. Ask omniconsa for your SPF TXT record, or add at your DNS host:
+
+```txt
+v=spf1 mx a:mail.omniconsa.com ~all
+```
+
+**Yahoo inbox:** Check **Spam** and **Bulk** folders. Add `hello@waqya.com` to contacts. Search for subject `Your weekly digest - Waqya`.
+
+**Switch relay:** If omniconsa outbound IP is blocklisted, point `.env` at Hostinger instead (`SMTP_HOST=smtp.hostinger.com`), then run `python automation/setup_wordpress_mail.py`.
 
 ## Data stored (minimal)
 

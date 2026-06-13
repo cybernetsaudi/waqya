@@ -1,15 +1,18 @@
 """
 Deduplication store backed by SQLite.
 
-Tracks every news story the pipeline has already seen so the same event
-is never processed twice, even across separate GitHub Actions runs
-(the DB file is uploaded/downloaded as a workflow artifact).
+Tracks story URLs and fingerprints so the same wire story or topic
+cannot be republished with a new headline.
 """
+
+from __future__ import annotations
 
 import hashlib
 import sqlite3
 import time
 from pathlib import Path
+
+from url_utils import normalize_story_url, url_fingerprint
 
 DB_PATH = Path(__file__).parent / "seen.db"
 
@@ -26,18 +29,25 @@ def _connect() -> sqlite3.Connection:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS seen_urls (
+            url_fp TEXT PRIMARY KEY,
+            url    TEXT,
+            seen_at REAL
+        )
+        """
+    )
     conn.commit()
     return conn
 
 
 def fingerprint(title: str, url: str) -> str:
-    """Stable hash for a story based on its title + URL."""
-    raw = f"{title.strip().lower()}|{url.strip().lower()}"
+    raw = f"{title.strip().lower()}|{normalize_story_url(url)}"
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
-def recent_titles(max_age_days: int = 3, limit: int = 80) -> list[str]:
-    """Titles processed recently (for similar-event detection)."""
+def recent_titles(max_age_days: int = 7, limit: int = 120) -> list[str]:
     cutoff = time.time() - (max_age_days * 86400)
     conn = _connect()
     rows = conn.execute(
@@ -48,10 +58,19 @@ def recent_titles(max_age_days: int = 3, limit: int = 80) -> list[str]:
     return [r[0] for r in rows if r[0]]
 
 
-def is_similar_event(title: str, summary: str = "", threshold: float = 0.52) -> bool:
-    """True if title overlaps a recently processed story cluster."""
+def is_url_seen(url: str) -> bool:
+    fp = url_fingerprint(url)
+    if not fp:
+        return False
+    conn = _connect()
+    row = conn.execute("SELECT 1 FROM seen_urls WHERE url_fp = ?", (fp,)).fetchone()
+    conn.close()
+    return row is not None
+
+
+def is_similar_event(title: str, summary: str = "", threshold: float = 0.42) -> bool:
     try:
-        from story_diversity import cluster_key, clusters_match
+        from story_diversity import cluster_key, clusters_match, story_entities
     except ImportError:
         return False
 
@@ -59,10 +78,14 @@ def is_similar_event(title: str, summary: str = "", threshold: float = 0.52) -> 
     for prev in recent_titles():
         if clusters_match(ck, cluster_key(prev), threshold):
             return True
+        if story_entities(title, summary) & story_entities(prev):
+            return True
     return False
 
 
-def is_seen(title: str, url: str) -> bool:
+def is_seen(title: str, url: str, summary: str = "") -> bool:
+    if is_url_seen(url):
+        return True
     conn = _connect()
     fp = fingerprint(title, url)
     row = conn.execute(
@@ -71,7 +94,7 @@ def is_seen(title: str, url: str) -> bool:
     conn.close()
     if row is not None:
         return True
-    return is_similar_event(title)
+    return is_similar_event(title, summary)
 
 
 def mark_seen(title: str, url: str, source: str) -> None:
@@ -82,6 +105,13 @@ def mark_seen(title: str, url: str, source: str) -> None:
         "VALUES (?, ?, ?, ?)",
         (fp, title, source, time.time()),
     )
+    url_fp = url_fingerprint(url)
+    norm = normalize_story_url(url)
+    if url_fp and norm:
+        conn.execute(
+            "INSERT OR IGNORE INTO seen_urls (url_fp, url, seen_at) VALUES (?, ?, ?)",
+            (url_fp, norm, time.time()),
+        )
     conn.commit()
     conn.close()
 
@@ -94,11 +124,12 @@ def count_seen() -> int:
 
 
 def prune(max_age_days: int = 30) -> int:
-    """Remove entries older than *max_age_days*. Returns count deleted."""
     cutoff = time.time() - (max_age_days * 86400)
     conn = _connect()
     cur = conn.execute("DELETE FROM seen_stories WHERE seen_at < ?", (cutoff,))
-    deleted = cur.rowcount
+    deleted = int(cur.rowcount)
+    cur2 = conn.execute("DELETE FROM seen_urls WHERE seen_at < ?", (cutoff,))
+    deleted += int(cur2.rowcount)
     conn.commit()
     conn.close()
     return deleted

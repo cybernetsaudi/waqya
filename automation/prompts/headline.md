@@ -46,3 +46,5 @@ REGION_TAGS: comma-separated region tags from optional list (or blank)
 TOPIC_TAGS: comma-separated topic tags from optional list (or blank)
 SUBJECTS: 4-8 Dublin Core subject keywords
 WAQYA_READ: exactly 3 short bullets separated by | (The Waqya read — what it means next, who wins/loses, what to watch)
+HEADLINE_AR: optional Arabic headline for the story (max 80 chars, for Middle East / Gulf readers)
+HEADLINE_UR: optional Urdu headline (max 80 chars, for South Asia readers)

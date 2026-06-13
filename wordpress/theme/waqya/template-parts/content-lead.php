@@ -24,9 +24,7 @@
 
     <footer class="lead-story__footer">
         <p class="lead-story__meta">
-            <time datetime="<?php echo esc_attr(get_the_date(DATE_W3C)); ?>">
-                <?php echo esc_html(waqya_time_ago()); ?>
-            </time>
+            <?php waqya_render_dateline('inline'); ?>
             <span class="lead-story__sep" aria-hidden="true">·</span>
             <span><?php echo esc_html(sprintf(
                 /* translators: %d: minutes */

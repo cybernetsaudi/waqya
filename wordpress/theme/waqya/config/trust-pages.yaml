@@ -1,0 +1,19 @@
+# Trust & editorial pages — single source of truth (theme + automation sync)
+
+pages:
+  editorial-policy:
+    title: Editorial Policy
+    eyebrow: Standards
+    dek: How Waqya gathers news, writes commentary, and decides what gets published.
+  corrections:
+    title: Corrections
+    eyebrow: Accuracy
+    dek: We fix factual errors quickly and transparently. Here is how to report one.
+  about:
+    title: About Waqya
+    eyebrow: Who we are
+    dek: Independent commentary on world news — clear, urgent, and built for readers who want the story behind the headline.
+  contact:
+    title: Contact
+    eyebrow: Reach us
+    dek: Corrections, partnerships, press inquiries, and reader feedback.

@@ -1,0 +1,104 @@
+/* Cookie consent banner */
+.waqya-consent {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 100000;
+  padding: var(--space-4);
+  pointer-events: none;
+}
+
+.waqya-consent__panel {
+  pointer-events: auto;
+  max-width: 36rem;
+  margin: 0 auto;
+  padding: var(--space-5);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.waqya-consent__title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+}
+
+.waqya-consent__intro {
+  margin: 0 0 var(--space-4);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+}
+
+.waqya-consent__prefs {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  background: var(--color-bg);
+  border-radius: var(--radius-sm, 4px);
+}
+
+.waqya-consent__check {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font-size: 0.875rem;
+  margin-bottom: var(--space-2);
+}
+
+.waqya-consent__check--disabled {
+  opacity: 0.7;
+}
+
+.waqya-consent__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.waqya-consent__btn {
+  padding: 0.5rem 1rem;
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.waqya-consent__btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.waqya-consent__btn--ghost {
+  background: transparent;
+}
+
+.waqya-consent__links {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.waqya-consent__links a {
+  color: var(--color-accent);
+}
+
+.site-footer__legal {
+  margin: var(--space-3) 0 0;
+  font-size: 0.8125rem;
+}
+
+.site-footer__cookie-btn {
+  padding: 0;
+  font: inherit;
+  color: var(--color-accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}

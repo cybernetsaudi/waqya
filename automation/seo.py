@@ -195,7 +195,10 @@ def optimize_published_post(
     metadesc = build_meta_description(focus, meta_description, headline)
     seo_cfg = config.get("seo", {})
 
+    from content_seo import optimize_post_html
+
     content_html = strip_existing_waqya_blocks(content_html)
+    content_html = optimize_post_html(content_html, focus, headline)
     extra_html = ""
 
     if seo_cfg.get("add_related_links", True):

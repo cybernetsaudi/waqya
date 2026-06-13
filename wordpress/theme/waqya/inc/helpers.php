@@ -62,6 +62,10 @@ function waqya_the_thumbnail(string $size = 'waqya-card', string $class = ''): v
             'class'   => $class,
             'loading' => $size === 'waqya-hero' ? 'eager' : 'lazy',
         ];
+        if ($size === 'waqya-hero') {
+            $attrs['fetchpriority'] = 'high';
+            $attrs['decoding']      = 'async';
+        }
         if (str_contains($class, 'post-slider__image')) {
             $attrs['sizes'] = '100vw';
         }

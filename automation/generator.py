@@ -49,12 +49,16 @@ class Article:
     is_breaking: bool = False
     focus_keyword: str = ""
     seo_title: str = ""
+    headline_ar: str = ""
+    headline_ur: str = ""
     iptc_topic: str = ""
     iptc_code: str = ""
     iptc_label: str = ""
     wp_category: str = ""
     subjects: list[str] = None
     regions: list[str] = None
+    article_format: str = ""
+    interview_tone: str = ""
 
     def __post_init__(self):
         if self.subjects is None:
@@ -68,6 +72,9 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
     Generate a full commentary article for a single news story.
     Returns None on failure.
     """
+    if story.get("story_format") == "on_the_record":
+        return generate_on_the_record(story, client, config)
+
     model = config.get("openai", {}).get("model", "gpt-4o-mini")
     temperature = config.get("openai", {}).get("temperature", 0.7)
     max_tokens = config.get("openai", {}).get("max_tokens", 2000)
@@ -216,6 +223,162 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         wp_category=primary["wp_category"],
         subjects=subjects,
         regions=region_tags,
+        headline_ar=parsed.get("headline_ar", ""),
+        headline_ur=parsed.get("headline_ur", ""),
+    )
+
+
+def generate_on_the_record(story: dict, client: OpenAI, config: dict) -> Optional[Article]:
+    """On The Record interview review with assigned tone."""
+    model = config.get("openai", {}).get("model", "gpt-4o-mini")
+    temperature = config.get("openai", {}).get("temperature", 0.85)
+    max_tokens = config.get("openai", {}).get("max_tokens", 2000)
+
+    from interview_review import pick_interview_tone
+    from taxonomy import (
+        normalize_tags,
+        primary_catalog_for_prompt,
+        region_tags_list,
+        resolve_primary,
+        suggest_primary_from_story,
+        topic_tags_list,
+    )
+
+    tone = story.get("interview_tone") or pick_interview_tone(
+        story, config.get("on_the_record", {}).get("tones")
+    )
+    review_prompt = (
+        _load_prompt("interview-review")
+        .replace("{{TONE}}", tone)
+    )
+    headline_prompt = (
+        _load_prompt("headline")
+        .replace("{{IPTC_CATALOG}}", primary_catalog_for_prompt())
+        .replace("{{REGION_TAGS}}", ", ".join(region_tags_list()[:25]))
+        .replace("{{TOPIC_TAGS}}", ", ".join(topic_tags_list()[:25]))
+    )
+
+    suggested_primary = story.get("suggested_primary") or suggest_primary_from_story(
+        story["title"], story.get("summary", ""), story.get("category")
+    )
+    if suggested_primary == "current-affairs":
+        suggested_primary = config.get("on_the_record", {}).get("default_desk", "united-states")
+
+    from yoast_seo import suggest_focus_keyword
+
+    pre_focus = suggest_focus_keyword(
+        headline=story.get("title", ""),
+        summary=story.get("summary", ""),
+        primary_key=suggested_primary,
+    )
+
+    user_input = (
+        f"ON THE RECORD — INTERVIEW REVIEW\n"
+        f"Assigned tone: {tone}\n"
+        f"Title: {story['title']}\n"
+        f"Source: {story['source']}\n"
+        f"Summary: {story['summary']}\n"
+        f"URL: {story['url']}\n"
+        f"Published: {story.get('published', 'Unknown')}\n"
+        f"Desk: {suggested_primary}\n"
+        f"SEO FOCUS KEYPHRASE: {pre_focus}\n"
+    )
+
+    try:
+        body_resp = client.chat.completions.create(
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": review_prompt},
+                {"role": "user", "content": user_input},
+            ],
+        )
+        body = body_resp.choices[0].message.content.strip()
+    except Exception:
+        log.exception("On The Record body failed: %s", story["title"])
+        return None
+
+    try:
+        headline_temp = config.get("openai", {}).get("headline_temperature", 0.9)
+        meta_resp = client.chat.completions.create(
+            model=model,
+            temperature=headline_temp,
+            max_tokens=350,
+            messages=[
+                {
+                    "role": "system",
+                    "content": headline_prompt
+                    + "\n\nThis is an On The Record interview review. Headline should signal opinion/review, not neutral wire copy.",
+                },
+                {"role": "user", "content": body},
+            ],
+        )
+        meta_raw = meta_resp.choices[0].message.content.strip()
+    except Exception:
+        log.exception("On The Record headline failed: %s", story["title"])
+        return None
+
+    parsed = _parse_headline_response(meta_raw)
+    headline = parsed["headline"] or story["title"]
+    meta_desc = parsed["meta"] or parsed["excerpt"] or body[:155]
+    excerpt = parsed["excerpt"] or meta_desc
+    image_query = parsed["image_query"] or f"{story['title']} interview"
+
+    primary = resolve_primary(
+        parsed.get("primary") or suggested_primary,
+        feed_category=story.get("category"),
+        title=story.get("title", ""),
+        summary=story.get("summary", ""),
+    )
+    region_tags = [
+        r.strip()
+        for r in (parsed.get("region_tags") or parsed.get("regions", "")).split(",")
+        if r.strip()
+    ]
+    topic_tag_list = [
+        t.strip() for t in parsed.get("topic_tags", "").split(",") if t.strip()
+    ]
+    subjects = [s.strip() for s in parsed.get("subjects", "").split(",") if s.strip()]
+    otr_tag = config.get("on_the_record", {}).get("tag", "On The Record")
+    tags = normalize_tags(
+        [otr_tag] + parsed["tags"],
+        regions=region_tags,
+        topic_tags=topic_tag_list,
+        max_tags=15,
+    )
+    waqya_read = parsed.get("waqya_read", "")
+    from yoast_seo import build_meta_description, build_seo_title
+
+    focus = parsed.get("focus_keyword") or pre_focus
+    seo_title = parsed.get("seo_title") or build_seo_title(focus, headline)
+    meta_desc = build_meta_description(focus, meta_desc, headline)
+
+    return Article(
+        headline=headline,
+        body=body,
+        meta_description=meta_desc,
+        focus_keyword=focus,
+        seo_title=seo_title,
+        tags=tags,
+        excerpt=excerpt,
+        category=primary["primary_key"],
+        source_title=story["title"],
+        source_url=story["url"],
+        source_name=story["source"],
+        image_query=image_query,
+        waqya_read=waqya_read,
+        source_story=story,
+        iptc_topic=primary["primary_key"],
+        iptc_code=parsed.get("iptc_code") or primary["iptc_code"],
+        iptc_label=primary["label"],
+        wp_category=primary["wp_category"],
+        subjects=subjects,
+        regions=region_tags,
+        headline_ar=parsed.get("headline_ar", ""),
+        headline_ur=parsed.get("headline_ur", ""),
+        article_format="on_the_record",
+        interview_tone=tone,
     )
 
 
@@ -237,9 +400,13 @@ def _parse_headline_response(raw: str) -> dict:
         "waqya_read": "",
         "focus_keyword": "",
         "seo_title": "",
+        "headline_ar": "",
+        "headline_ur": "",
     }
     key_map = {
         "HEADLINE": "headline",
+        "HEADLINE_AR": "headline_ar",
+        "HEADLINE_UR": "headline_ur",
         "META": "meta",
         "TAGS": "tags",
         "EXCERPT": "excerpt",
@@ -277,16 +444,22 @@ def _parse_headline_response(raw: str) -> dict:
     return fields
 
 
-def attach_images(articles: list[Article]) -> None:
-    """Fetch hero + inline images for each article in place."""
+def attach_images(articles: list[Article], config: dict | None = None) -> None:
+    """Fetch hero + inline images; one shared dedup pool per pipeline run."""
+    from image_dedup import prepare_pipeline_image_pool
     from image_fetcher import fetch_article_images
 
+    if config is None:
+        config = _load_config()
+
+    batch_ctx = prepare_pipeline_image_pool(config)
     for article in articles:
         article.images = fetch_article_images(
             headline=article.headline,
             image_query=article.image_query,
             source_url=article.source_url,
             tags=article.tags,
+            batch_ctx=batch_ctx,
         )
 
 
@@ -311,7 +484,7 @@ def generate_batch(stories: list[dict]) -> list[Article]:
 
     if articles and config.get("images", {}).get("enabled", True):
         log.info("Fetching featured images for %d articles", len(articles))
-        attach_images(articles)
+        attach_images(articles, config)
 
     log.info("Generated %d / %d articles", len(articles), len(stories))
     return articles

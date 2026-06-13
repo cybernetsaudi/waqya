@@ -26,9 +26,7 @@ $slug   = waqya_post_category_slug();
                 <h3 class="post-slider__headline"><?php waqya_the_title(); ?></h3>
                 <p class="post-slider__excerpt"><?php waqya_the_excerpt(18); ?></p>
                 <p class="post-slider__meta">
-                    <time datetime="<?php echo esc_attr(get_the_date(DATE_W3C)); ?>">
-                        <?php echo esc_html(waqya_time_ago()); ?>
-                    </time>
+                    <?php waqya_render_dateline('inline'); ?>
                 </p>
             </div>
         </div>

@@ -12,19 +12,28 @@ $used_ids = [];
 ?>
 
 <div class="home-page">
-    <div class="home-page__hero">
-        <?php
-        $slider_ids = waqya_render_post_slider([
-            'posts_per_page' => 5,
-            'post__not_in'   => $exclude,
-            'title'          => __('Top stories', 'waqya'),
-        ]);
-        $used_ids = array_merge($used_ids, $slider_ids);
+    <div class="home-page__hero home-hero-band">
+        <div class="home-page__hero-main home-hero-band__main">
+            <?php
+            $slider_ids = waqya_render_post_slider([
+                'posts_per_page'  => 5,
+                'post__not_in'    => $exclude,
+                'prefer_featured' => true,
+                'title'           => __('Top stories', 'waqya'),
+            ]);
+            $used_ids = array_merge($used_ids, $slider_ids);
 
-        if ($slider_ids === []) {
-            get_template_part('template-parts/content', 'none');
-        }
-        ?>
+            if ($slider_ids === []) {
+                get_template_part('template-parts/content', 'none');
+            }
+            ?>
+        </div>
+        <aside class="home-page__hero-otr home-hero-band__otr">
+            <?php
+            $otr_ids = waqya_render_on_the_record_rail(array_merge($exclude, $used_ids));
+            $used_ids = array_merge($used_ids, $otr_ids);
+            ?>
+        </aside>
     </div>
 
     <div class="home-page__sections">

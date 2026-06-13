@@ -7,7 +7,7 @@ site:
 
 # How many articles to generate per pipeline run
 pipeline:
-  max_articles_per_run: 8
+  max_articles_per_run: 10
   min_words: 600
   max_words: 1200
   delay_between_articles_seconds: 25
@@ -21,14 +21,18 @@ pipeline:
   diversity:
     enabled: true
     max_per_cluster_per_run: 1
-    max_per_primary_per_run: 3
-    min_distinct_primaries_per_run: 3
-    cluster_overlap_threshold: 0.42
-    # Shorter window = softer "already covered" scoring (not hard blocks)
-    recent_hours: 24
+    max_per_primary_per_run: 4
+    min_distinct_primaries_per_run: 4
+    cluster_overlap_threshold: 0.35
+    # Hard block: same topic cluster on site (72h) + max 1 Trump/Iran/etc per day (24h)
+    recent_hours: 72
+    entity_window_hours: 24
+    max_per_entity_per_day: 1
+    hard_block_recent_clusters: true
+    source_url_window_hours: 168
     trending_score_cap: 10.0
-    saturation_penalty: 5.0
-    primary_daily_cap: 4
+    saturation_penalty: 12.0
+    primary_daily_cap: 6
 
 # Taxonomy source of truth: automation/waqya_categories.yaml
 taxonomy:
@@ -39,6 +43,9 @@ images:
   enabled: true
   provider: pexels
   inline_count: 3
+  # Before each run: load Pexels IDs + image URLs already on waqya.com into images.db
+  sync_from_site: true
+  sync_max_post_pages: 10
   fallbacks:
     - og_image
 
@@ -60,13 +67,27 @@ trending:
   enabled: true
   newsapi_top_headlines: true
   google_trends: true
-  max_keywords: 40
-  search_top_queries: 3
+  # Regional Google Trends RSS (geo codes) — boosts incident/crime stories when they spike locally
+  google_trends_geos:
+    - geo: US
+      weight: 3.0
+    - geo: GB
+      weight: 3.5
+    - geo: IN
+      weight: 3.5
+    - geo: PK
+      weight: 3.5
+    - geo: SA
+      weight: 3.0
+    - geo: AE
+      weight: 3.0
+  max_keywords: 55
+  search_top_queries: 4
 
 # NewsAPI settings (supplements RSS)
 newsapi:
   enabled: true
-  # Developer (free) tier: ~100 requests/day — we budget ~20/run × 6 runs/day
+  # Developer (free) tier: ~100 requests/day — budget ~26/run × 6 runs/day (topic_queries are the main cost)
   domains: "bbc.co.uk,reuters.com,techcrunch.com,theverge.com,arstechnica.com,aljazeera.com,theguardian.com,dw.com,france24.com"
   language: "en"
   sort_by: "publishedAt"
@@ -83,6 +104,7 @@ newsapi:
     ae: middle-east
     il: middle-east
     in: south-asia
+    pk: south-asia
     gb: united-kingdom
     us: united-states
   # Targeted searches (uses /everything — 1 request each)
@@ -92,6 +114,15 @@ newsapi:
       page_size: 8
     - query: "India OR Pakistan OR Bangladesh OR Kashmir"
       category: south-asia
+      page_size: 8
+    - query: "(murder OR stabbing OR killing OR \"man charged\") AND (UK OR Britain OR England)"
+      category: crime-justice
+      page_size: 8
+    - query: "(murder OR killed OR attack OR blast OR stabbing) AND (India OR Pakistan OR Bangladesh)"
+      category: crime-justice
+      page_size: 8
+    - query: "(killed OR explosion OR attack OR airstrike) AND (Lebanon OR Syria OR Iraq OR Jordan OR West Bank)"
+      category: middle-east
       page_size: 8
     - query: "NASA OR space OR Mars OR telescope OR satellite"
       category: science
@@ -117,6 +148,37 @@ breaking:
     - war-conflict
     - middle-east
     - current-affairs
+    - crime-justice
+    - united-kingdom
+    - south-asia
+
+# Re-gather same source URL → append developing update log (no new post)
+developing:
+  enabled: true
+  update_window_hours: 48
+
+# On The Record — interview reviews (auto-published when quality gate passes)
+on_the_record:
+  enabled: true
+  max_per_run: 2
+  tag: "On The Record"
+  default_desk: united-states
+  trend_score_boost: 4.0
+  tones:
+    - critical
+    - contradiction
+    - skeptical
+    - encouraging
+    - wry
+  topic_queries:
+    - query: '(Trump OR Biden OR Harris OR president) AND (interview OR "sit-down" OR exclusive OR "one-on-one")'
+      category: united-states
+      page_size: 6
+      format: on_the_record
+    - query: '(Starmer OR "prime minister") AND (interview OR BBC OR Sky OR "sit-down")'
+      category: united-kingdom
+      page_size: 5
+      format: on_the_record
 
 crisis_mode:
   enabled: false

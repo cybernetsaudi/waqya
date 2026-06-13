@@ -20,8 +20,6 @@ $slug = waqya_post_category_slug();
             <a href="<?php the_permalink(); ?>"><?php waqya_the_title(); ?></a>
         </h3>
         <p class="post-card__excerpt"><?php waqya_the_excerpt(); ?></p>
-        <time class="post-card__date" datetime="<?php echo esc_attr(get_the_date(DATE_W3C)); ?>">
-            <?php echo esc_html(waqya_time_ago()); ?>
-        </time>
+        <?php waqya_render_dateline('card'); ?>
     </div>
 </article>

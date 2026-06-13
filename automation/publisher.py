@@ -5,9 +5,11 @@ WordPress publisher — posts drafts with hero + inline images and SEO.
 from __future__ import annotations
 
 import html as html_module
+import json
 import logging
 import os
 import re
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Optional
 
@@ -25,6 +27,14 @@ CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
 def _load_config() -> dict:
     with open(CONFIG_PATH) as f:
         return yaml.safe_load(f)
+
+
+def _gmt_now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _initial_update_log(note: str = "First published") -> str:
+    return json.dumps([{"at": _gmt_now_iso(), "note": note}], ensure_ascii=False)
 
 
 def _wp_auth() -> tuple[str, str, str]:
@@ -269,6 +279,11 @@ def publish_draft(
     tag_names = list(article.tags)
     if is_breaking and "Breaking" not in tag_names:
         tag_names.insert(0, "Breaking")
+    otr_cfg = config.get("on_the_record", {})
+    if article.article_format == "on_the_record":
+        otr_tag = otr_cfg.get("tag", "On The Record")
+        if otr_tag not in tag_names:
+            tag_names.insert(0, otr_tag)
     tag_ids = _get_or_create_tags(base_url, auth, tag_names)
 
     from html_utils import wp_plain_text
@@ -301,6 +316,10 @@ def publish_draft(
     content_html = _build_article_html(article, images)
     content_html += _editorial_footer_html(article, primary)
 
+    from content_seo import optimize_post_html
+
+    content_html = optimize_post_html(content_html, focus, article.headline)
+
     featured_media_id = None
     featured_url = None
     if images and images.featured and images.featured.wp_media_id:
@@ -313,6 +332,8 @@ def publish_draft(
     if post_status is None:
         post_status = "publish" if config.get("pipeline", {}).get("auto_publish", False) else "draft"
 
+    from datetime_utils import source_date_gmt
+
     post_data = {
         "title": wp_plain_text(article.headline),
         "slug": post_slug,
@@ -324,6 +345,7 @@ def publish_draft(
         "meta": {
             "_waqya_quality_score": str(quality_score),
             "_waqya_is_breaking": "1" if is_breaking else "0",
+            "_waqya_developing": "1" if is_breaking else "0",
             "_yoast_wpseo_metadesc": metadesc,
             "_yoast_wpseo_title": seo_title,
             "_yoast_wpseo_focuskw": focus[:60],
@@ -334,8 +356,28 @@ def publish_draft(
             "_waqya_dc_subjects": subjects_str,
             "_waqya_coverage": regions_str,
             "_waqya_menu_group": primary.get("menu_group", ""),
+            "_waqya_source_url": article.source_url,
         },
     }
+    if article.source_story:
+        published_gmt = source_date_gmt(article.source_story.get("published"))
+        if published_gmt:
+            post_data["date_gmt"] = published_gmt
+    if article.article_format == "on_the_record":
+        post_data["meta"]["_waqya_format"] = "on_the_record"
+        if article.interview_tone:
+            post_data["meta"]["_waqya_interview_tone"] = article.interview_tone[:32]
+    if is_breaking:
+        note = (
+            "Interview review published"
+            if article.article_format == "on_the_record"
+            else "Story first published"
+        )
+        post_data["meta"]["_waqya_update_log"] = _initial_update_log(note)
+    if article.headline_ar:
+        post_data["meta"]["_waqya_headline_ar"] = article.headline_ar[:120]
+    if article.headline_ur:
+        post_data["meta"]["_waqya_headline_ur"] = article.headline_ur[:120]
     if featured_media_id:
         post_data["featured_media"] = featured_media_id
 
@@ -352,6 +394,11 @@ def publish_draft(
         post_url = data.get("link", f"{base_url}/?p={post_id}")
         edit_url = f"{base_url}/wp-admin/post.php?post={post_id}&action=edit"
         log.info("Published %s #%d: %s", post_status, post_id, article.headline)
+
+        if images:
+            from image_dedup import mark_article_images
+
+            mark_article_images(images, article.headline)
 
         from seo import optimize_published_post
 
@@ -382,6 +429,46 @@ def publish_draft(
     except Exception:
         log.exception("Failed to publish draft: %s", article.headline)
         return None
+
+
+def _clear_featured_home(base_url: str, auth: tuple[str, str]) -> None:
+    try:
+        resp = requests.get(
+            f"{base_url}/wp-json/wp/v2/posts",
+            params={
+                "per_page": 5,
+                "status": "publish",
+                "meta_key": "_waqya_featured_home",
+                "meta_value": "1",
+                "_fields": "id",
+            },
+            auth=auth,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        for post in resp.json():
+            requests.post(
+                f"{base_url}/wp-json/wp/v2/posts/{post['id']}",
+                json={"meta": {"_waqya_featured_home": ""}},
+                auth=auth,
+                timeout=15,
+            )
+    except Exception:
+        log.exception("Could not clear previous featured-home flag")
+
+
+def _set_featured_home(base_url: str, auth: tuple[str, str], post_id: int) -> None:
+    try:
+        _clear_featured_home(base_url, auth)
+        requests.post(
+            f"{base_url}/wp-json/wp/v2/posts/{post_id}",
+            json={"meta": {"_waqya_featured_home": "1"}},
+            auth=auth,
+            timeout=15,
+        )
+        log.info("Editor's pick set on post #%d", post_id)
+    except Exception:
+        log.exception("Could not set featured-home on #%d", post_id)
 
 
 def publish_batch(
@@ -417,4 +504,11 @@ def publish_batch(
             results.append(result)
     published = sum(1 for r in results if r.status == "publish")
     log.info("Published %d live, %d held / %d articles", published, len(results) - published, len(articles))
+
+    live = [r for r in results if r.status == "publish" and r.post_id]
+    if live:
+        best = max(live, key=lambda r: (r.quality_score or 0, r.is_breaking))
+        base_url, user, password = _wp_auth()
+        _set_featured_home(base_url, (user, password), best.post_id)
+
     return results

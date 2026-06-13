@@ -76,6 +76,12 @@ def score_article(article: Article, story: dict | None, config: dict) -> Quality
         score += 8
         notes.append("Waqya Read present")
 
+    if article.article_format == "on_the_record":
+        score += 5
+        notes.append("On The Record format")
+        if "##" in body:
+            score += 3
+
     ai_slop = ["as an ai", "as a language model", "i cannot", "openai"]
     lower = body.lower()
     if any(p in lower for p in ai_slop):

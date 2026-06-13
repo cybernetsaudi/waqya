@@ -18,7 +18,13 @@ from urllib.parse import urljoin
 import requests
 import yaml
 
-from image_dedup import is_image_used, mark_image_used
+from image_dedup import (
+    ImageBatchContext,
+    fingerprint,
+    is_image_used,
+    is_source_url_used,
+    mark_image_used,
+)
 
 log = logging.getLogger(__name__)
 
@@ -99,10 +105,20 @@ def _expand_queries(base: str, tags: list[str], count: int) -> list[str]:
     return queries[:count]
 
 
-def _photo_to_image(photo: dict, idx: int, query: str) -> Optional[FetchedImage]:
+def _photo_to_image(
+    photo: dict,
+    idx: int,
+    query: str,
+    *,
+    exclude_pexels: set[str] | None = None,
+) -> Optional[FetchedImage]:
     pexels_id = photo.get("id")
-    if pexels_id is not None and is_image_used(pexels_id=pexels_id):
-        return None
+    if pexels_id is not None:
+        pid = str(pexels_id)
+        if exclude_pexels and pid in exclude_pexels:
+            return None
+        if is_image_used(pexels_id=pexels_id):
+            return None
 
     src = photo.get("src", {}).get("large") or photo.get("src", {}).get("medium")
     if not src:
@@ -131,6 +147,8 @@ def _pexels_search(
     per_page: int = 4,
     start_page: int = 1,
     max_pages: int = 5,
+    *,
+    exclude_pexels: set[str] | None = None,
 ) -> list[FetchedImage]:
     api_key = _pexels_key()
     if not api_key:
@@ -160,7 +178,7 @@ def _pexels_search(
             for i, photo in enumerate(photos):
                 if len(out) >= per_page:
                     break
-                img = _photo_to_image(photo, len(out) + 1, query)
+                img = _photo_to_image(photo, len(out) + 1, query, exclude_pexels=exclude_pexels)
                 if img:
                     out.append(img)
         return out
@@ -185,7 +203,7 @@ def _from_og_image(page_url: str) -> Optional[FetchedImage]:
         if m:
             image_url = urljoin(page_url, m.group(1).strip())
             data = _download(image_url)
-            if data and not is_image_used(data):
+            if data and not is_image_used(data) and not is_source_url_used(image_url):
                 return FetchedImage(
                     data=data,
                     filename="featured.jpg",
@@ -201,6 +219,9 @@ def fetch_article_images(
     image_query: str,
     source_url: str,
     tags: list[str] | None = None,
+    *,
+    exclude_pexels: set[str] | None = None,
+    batch_ctx: ImageBatchContext | None = None,
 ) -> ArticleImages:
     """Fetch 1 featured + N inline images."""
     config = _load_config()
@@ -215,19 +236,28 @@ def fetch_article_images(
     queries = _expand_queries(base, tag_list, total_needed)
 
     collected: list[FetchedImage] = []
-    session_fps: set[str] = set()
+    merged_exclude: set[str] = set(exclude_pexels or set())
+    if batch_ctx:
+        merged_exclude |= batch_ctx.exclude_pexels
 
     def _add(img: FetchedImage) -> bool:
-        from image_dedup import fingerprint
-
         fp = fingerprint(img.data)
-        if fp in session_fps:
+        if batch_ctx and batch_ctx.is_session_duplicate(img.data):
             return False
-        session_fps.add(fp)
+        if fp in {fingerprint(x.data) for x in collected}:
+            return False
         collected.append(img)
+        if batch_ctx:
+            batch_ctx.reserve(img)
         return True
 
-    batch = _pexels_search(base, per_page=total_needed, start_page=1, max_pages=6)
+    batch = _pexels_search(
+        base,
+        per_page=total_needed,
+        start_page=1,
+        max_pages=8,
+        exclude_pexels=merged_exclude,
+    )
     for img in batch:
         if len(collected) >= total_needed:
             break
@@ -236,7 +266,13 @@ def fetch_article_images(
     for i, q in enumerate(queries):
         if len(collected) >= total_needed:
             break
-        batch = _pexels_search(q, per_page=2, start_page=1 + (i % 3), max_pages=4)
+        batch = _pexels_search(
+            q,
+            per_page=2,
+            start_page=1 + (i % 5),
+            max_pages=6,
+            exclude_pexels=merged_exclude,
+        )
         for img in batch:
             if len(collected) >= total_needed:
                 break
@@ -257,6 +293,8 @@ def fetch_article_images(
                 img.pexels_id,
                 context=headline[:120],
             )
+            if img.pexels_id is not None:
+                merged_exclude.add(str(img.pexels_id))
         log.info(
             "Images for '%s': 1 featured + %d inline (pool: %d used total)",
             headline[:50],
