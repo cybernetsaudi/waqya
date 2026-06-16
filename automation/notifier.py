@@ -113,6 +113,23 @@ def notify_gather_empty(stats: dict) -> bool:
     return send_message("\n".join(lines))
 
 
+def notify_publish_failed(article_count: int) -> bool:
+    """Alert when articles were generated but WordPress rejected every publish."""
+    lines = [
+        "<b>⚠️ Waqya pipeline — publish failed</b>",
+        "",
+        f"Generated {article_count} article{'s' if article_count != 1 else ''}, "
+        "but WordPress returned 403 on all REST API calls.",
+        "",
+        "Fix: update GitHub Secrets <code>WP_URL</code>, <code>WP_USER</code>, "
+        "<code>WP_APP_PASSWORD</code> (use a fresh Application Password).",
+        "Hostinger may also block cloud IPs — we now send a proper User-Agent.",
+        "",
+        "Check Actions logs for <code>wp-json/wp/v2/posts</code> errors.",
+    ]
+    return send_message("\n".join(lines))
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     from dotenv import load_dotenv

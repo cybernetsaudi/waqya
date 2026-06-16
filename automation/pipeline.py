@@ -88,6 +88,11 @@ def run() -> int:
     log.info("=" * 50)
     results = publish_batch(articles)
 
+    if articles and not results:
+        from notifier import notify_publish_failed
+
+        notify_publish_failed(len(articles))
+
     log.info("=" * 50)
     log.info("STEP 4 / 4 — Telegram + budget")
     log.info("=" * 50)

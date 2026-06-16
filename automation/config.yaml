@@ -146,8 +146,8 @@ openai:
 # LLM routing — Gemini for body quality, Groq for fast headlines + fallback
 llm:
   body:
-    primary: gemini
-    fallback: groq
+    primary: groq
+    fallback: gemini
   headline:
     primary: groq
     fallback: gemini

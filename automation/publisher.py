@@ -13,11 +13,11 @@ from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Optional
 
-import requests
 import yaml
 
 from generator import Article
 from image_fetcher import ArticleImages, FetchedImage
+from wp_client import wp_credentials, wp_get, wp_post
 
 log = logging.getLogger(__name__)
 
@@ -38,18 +38,15 @@ def _initial_update_log(note: str = "First published") -> str:
 
 
 def _wp_auth() -> tuple[str, str, str]:
-    url = os.environ["WP_URL"].rstrip("/")
-    return url, os.environ["WP_USER"], os.environ["WP_APP_PASSWORD"]
+    base, auth = wp_credentials()
+    return base, auth[0], auth[1]
 
 
-def _get_or_create_category(
-    base_url: str, auth: tuple[str, str], name: str, slug: str = ""
-) -> Optional[int]:
+def _get_or_create_category(name: str, slug: str = "") -> Optional[int]:
     try:
-        resp = requests.get(
-            f"{base_url}/wp-json/wp/v2/categories",
+        resp = wp_get(
+            "/wp-json/wp/v2/categories",
             params={"search": name, "per_page": 20},
-            auth=auth,
             timeout=15,
         )
         resp.raise_for_status()
@@ -60,12 +57,7 @@ def _get_or_create_category(
         payload: dict[str, str] = {"name": name}
         if slug:
             payload["slug"] = slug
-        resp = requests.post(
-            f"{base_url}/wp-json/wp/v2/categories",
-            json=payload,
-            auth=auth,
-            timeout=15,
-        )
+        resp = wp_post("/wp-json/wp/v2/categories", json=payload, timeout=15)
         resp.raise_for_status()
         return resp.json()["id"]
     except Exception:
@@ -73,16 +65,13 @@ def _get_or_create_category(
         return None
 
 
-def _get_or_create_tags(
-    base_url: str, auth: tuple[str, str], tag_names: list[str]
-) -> list[int]:
+def _get_or_create_tags(tag_names: list[str]) -> list[int]:
     tag_ids: list[int] = []
     for name in tag_names:
         try:
-            resp = requests.get(
-                f"{base_url}/wp-json/wp/v2/tags",
+            resp = wp_get(
+                "/wp-json/wp/v2/tags",
                 params={"search": name, "per_page": 5},
-                auth=auth,
                 timeout=15,
             )
             resp.raise_for_status()
@@ -92,12 +81,7 @@ def _get_or_create_tags(
                     found = tag["id"]
                     break
             if not found:
-                resp = requests.post(
-                    f"{base_url}/wp-json/wp/v2/tags",
-                    json={"name": name},
-                    auth=auth,
-                    timeout=15,
-                )
+                resp = wp_post("/wp-json/wp/v2/tags", json={"name": name}, timeout=15)
                 resp.raise_for_status()
                 found = resp.json()["id"]
             tag_ids.append(found)
@@ -106,22 +90,15 @@ def _get_or_create_tags(
     return tag_ids
 
 
-def upload_media(
-    base_url: str,
-    auth: tuple[str, str],
-    image: FetchedImage,
-    title: str,
-) -> Optional[FetchedImage]:
-    headers = {
-        "Content-Disposition": f'attachment; filename="{image.filename}"',
-        "Content-Type": image.mime_type,
-    }
+def upload_media(image: FetchedImage, title: str) -> Optional[FetchedImage]:
     try:
-        resp = requests.post(
-            f"{base_url}/wp-json/wp/v2/media",
-            headers=headers,
+        resp = wp_post(
+            "/wp-json/wp/v2/media",
             data=image.data,
-            auth=auth,
+            headers={
+                "Content-Disposition": f'attachment; filename="{image.filename}"',
+                "Content-Type": image.mime_type,
+            },
             timeout=90,
         )
         resp.raise_for_status()
@@ -131,10 +108,9 @@ def upload_media(
         update = {"title": title, "alt_text": image.alt_text}
         if image.credit:
             update["caption"] = image.credit
-        requests.post(
-            f"{base_url}/wp-json/wp/v2/media/{image.wp_media_id}",
+        wp_post(
+            f"/wp-json/wp/v2/media/{image.wp_media_id}",
             json=update,
-            auth=auth,
             timeout=15,
         )
         return image
@@ -231,17 +207,15 @@ def _build_article_html(article: Article, images: Optional[ArticleImages]) -> st
     return "\n\n".join(html_parts)
 
 
-def _upload_all_images(
-    base_url: str, auth: tuple[str, str], article: Article
-) -> Optional[ArticleImages]:
+def _upload_all_images(article: Article) -> Optional[ArticleImages]:
     images = article.images
     if not images:
         return None
 
     if images.featured:
-        upload_media(base_url, auth, images.featured, article.headline)
+        upload_media(images.featured, article.headline)
     for i, img in enumerate(images.inline):
-        upload_media(base_url, auth, img, f"{article.headline} — image {i + 2}")
+        upload_media(img, f"{article.headline} — image {i + 2}")
     return images
 
 
@@ -265,8 +239,7 @@ def publish_draft(
     is_breaking: bool = False,
     held_reason: str = "",
 ) -> Optional[PublishResult]:
-    base_url, user, password = _wp_auth()
-    auth = (user, password)
+    base_url, _, _ = _wp_auth()
     config = _load_config()
 
     from taxonomy import resolve_primary
@@ -274,7 +247,7 @@ def publish_draft(
     primary = resolve_primary(article.category or article.iptc_topic)
     cat_name = article.wp_category or primary["label"]
     cat_slug = primary["slug"]
-    cat_id = _get_or_create_category(base_url, auth, cat_name, cat_slug)
+    cat_id = _get_or_create_category(cat_name, cat_slug)
 
     tag_names = list(article.tags)
     if is_breaking and "Breaking" not in tag_names:
@@ -284,7 +257,7 @@ def publish_draft(
         otr_tag = otr_cfg.get("tag", "On The Record")
         if otr_tag not in tag_names:
             tag_names.insert(0, otr_tag)
-    tag_ids = _get_or_create_tags(base_url, auth, tag_names)
+    tag_ids = _get_or_create_tags(tag_names)
 
     from html_utils import wp_plain_text
     from yoast_seo import (
@@ -312,7 +285,7 @@ def publish_draft(
         for i, img in enumerate(article.images.inline):
             img.alt_text = build_image_alt(focus, article.headline, f"inline {i + 1}")
 
-    images = _upload_all_images(base_url, auth, article)
+    images = _upload_all_images(article)
     content_html = _build_article_html(article, images)
     content_html += _editorial_footer_html(article, primary)
 
@@ -382,12 +355,7 @@ def publish_draft(
         post_data["featured_media"] = featured_media_id
 
     try:
-        resp = requests.post(
-            f"{base_url}/wp-json/wp/v2/posts",
-            json=post_data,
-            auth=auth,
-            timeout=60,
-        )
+        resp = wp_post("/wp-json/wp/v2/posts", json=post_data, timeout=60)
         resp.raise_for_status()
         data = resp.json()
         post_id = data["id"]
@@ -431,10 +399,10 @@ def publish_draft(
         return None
 
 
-def _clear_featured_home(base_url: str, auth: tuple[str, str]) -> None:
+def _clear_featured_home() -> None:
     try:
-        resp = requests.get(
-            f"{base_url}/wp-json/wp/v2/posts",
+        resp = wp_get(
+            "/wp-json/wp/v2/posts",
             params={
                 "per_page": 5,
                 "status": "publish",
@@ -442,28 +410,25 @@ def _clear_featured_home(base_url: str, auth: tuple[str, str]) -> None:
                 "meta_value": "1",
                 "_fields": "id",
             },
-            auth=auth,
             timeout=15,
         )
         resp.raise_for_status()
         for post in resp.json():
-            requests.post(
-                f"{base_url}/wp-json/wp/v2/posts/{post['id']}",
+            wp_post(
+                f"/wp-json/wp/v2/posts/{post['id']}",
                 json={"meta": {"_waqya_featured_home": ""}},
-                auth=auth,
                 timeout=15,
             )
     except Exception:
         log.exception("Could not clear previous featured-home flag")
 
 
-def _set_featured_home(base_url: str, auth: tuple[str, str], post_id: int) -> None:
+def _set_featured_home(post_id: int) -> None:
     try:
-        _clear_featured_home(base_url, auth)
-        requests.post(
-            f"{base_url}/wp-json/wp/v2/posts/{post_id}",
+        _clear_featured_home()
+        wp_post(
+            f"/wp-json/wp/v2/posts/{post_id}",
             json={"meta": {"_waqya_featured_home": "1"}},
-            auth=auth,
             timeout=15,
         )
         log.info("Editor's pick set on post #%d", post_id)
@@ -508,7 +473,6 @@ def publish_batch(
     live = [r for r in results if r.status == "publish" and r.post_id]
     if live:
         best = max(live, key=lambda r: (r.quality_score or 0, r.is_breaking))
-        base_url, user, password = _wp_auth()
-        _set_featured_home(base_url, (user, password), best.post_id)
+        _set_featured_home(best.post_id)
 
     return results

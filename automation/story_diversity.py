@@ -17,10 +17,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Callable
 
-import requests
+import yaml
 
 from taxonomy import suggest_primary_from_story
 from url_utils import normalize_story_url, url_fingerprint
+from wp_client import wp_get
 
 log = logging.getLogger(__name__)
 
@@ -170,11 +171,12 @@ def extract_source_url_from_html(html: str) -> str:
 
 def fetch_saturation_state(div: DiversityConfig) -> SaturationState:
     """Recent WP posts: clusters, entity counts, published source URLs."""
-    base = os.environ.get("WP_URL", "").rstrip("/")
-    user = os.environ.get("WP_USER", "")
-    password = os.environ.get("WP_APP_PASSWORD", "")
     state = SaturationState()
-    if not base or not user or not password:
+    try:
+        from wp_client import wp_credentials
+
+        wp_credentials()
+    except Exception:
         return state
 
     cluster_after = datetime.now(timezone.utc) - timedelta(hours=div.recent_hours)
@@ -183,8 +185,8 @@ def fetch_saturation_state(div: DiversityConfig) -> SaturationState:
     cluster_iso = cluster_after.strftime("%Y-%m-%dT%H:%M:%S")
 
     try:
-        resp = requests.get(
-            f"{base}/wp-json/wp/v2/posts",
+        resp = wp_get(
+            "/wp-json/wp/v2/posts",
             params={
                 "per_page": 100,
                 "status": "publish",
@@ -193,7 +195,6 @@ def fetch_saturation_state(div: DiversityConfig) -> SaturationState:
                 "after": cluster_iso,
                 "_fields": "title,date,content,categories,meta",
             },
-            auth=(user, password),
             timeout=25,
         )
         resp.raise_for_status()
@@ -202,7 +203,7 @@ def fetch_saturation_state(div: DiversityConfig) -> SaturationState:
         log.exception("Could not fetch recent WP posts for diversity")
         return state
 
-    slug_by_id = _wp_category_slug_map(base, (user, password))
+    slug_by_id = _wp_category_slug_map()
     entity_after_dt = entity_after.replace(tzinfo=timezone.utc)
     url_after_dt = url_after.replace(tzinfo=timezone.utc)
 
@@ -252,14 +253,9 @@ def fetch_saturation_state(div: DiversityConfig) -> SaturationState:
     return state
 
 
-def _wp_category_slug_map(base: str, auth: tuple[str, str]) -> dict[int, str]:
+def _wp_category_slug_map() -> dict[int, str]:
     try:
-        resp = requests.get(
-            f"{base}/wp-json/wp/v2/categories",
-            params={"per_page": 100},
-            auth=auth,
-            timeout=15,
-        )
+        resp = wp_get("/wp-json/wp/v2/categories", params={"per_page": 100}, timeout=15)
         resp.raise_for_status()
         return {c["id"]: c.get("slug", "") for c in resp.json()}
     except Exception:
