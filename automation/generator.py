@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
-from openai import AuthenticationError, OpenAI
+
+from llm_client import LLMAuthError, LLMError, chat_completion, ensure_providers
 
 log = logging.getLogger(__name__)
 
@@ -67,17 +68,13 @@ class Article:
             self.regions = []
 
 
-def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Article]:
+def generate_article(story: dict, config: dict) -> Optional[Article]:
     """
     Generate a full commentary article for a single news story.
     Returns None on failure.
     """
     if story.get("story_format") == "on_the_record":
-        return generate_on_the_record(story, client, config)
-
-    model = config.get("openai", {}).get("model", "gpt-4o-mini")
-    temperature = config.get("openai", {}).get("temperature", 0.7)
-    max_tokens = config.get("openai", {}).get("max_tokens", 2000)
+        return generate_on_the_record(story, config)
 
     from taxonomy import (
         normalize_tags,
@@ -129,43 +126,29 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
         f"- Include it (or a close synonym) in at least one ## subheading.\n"
     )
 
-    # Step 1: Generate the article body
+    # Step 1: Generate the article body (Gemini → Groq fallback)
     try:
-        body_resp = client.chat.completions.create(
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            messages=[
-                {"role": "system", "content": commentary_prompt},
-                {"role": "user", "content": user_input},
-            ],
+        body, _provider = chat_completion(
+            system=commentary_prompt,
+            user=user_input,
+            config=config,
+            task="body",
         )
-        body = body_resp.choices[0].message.content.strip()
-    except AuthenticationError:
-        # Fatal: continuing will just burn time and produce zero output.
-        raise
-    except Exception:
+    except (LLMError, LLMAuthError):
         log.exception("Body generation failed for: %s", story["title"])
-        return None
-
-    # Step 2: Generate headline + metadata
-    try:
-        headline_temp = config.get("openai", {}).get("headline_temperature", 0.9)
-        meta_resp = client.chat.completions.create(
-            model=model,
-            temperature=headline_temp,
-            max_tokens=350,
-            messages=[
-                {"role": "system", "content": headline_prompt},
-                {"role": "user", "content": body},
-            ],
-        )
-        meta_raw = meta_resp.choices[0].message.content.strip()
-    except AuthenticationError:
         raise
-    except Exception:
+
+    # Step 2: Generate headline + metadata (Groq → Gemini fallback)
+    try:
+        meta_raw, _provider = chat_completion(
+            system=headline_prompt,
+            user=body,
+            config=config,
+            task="headline",
+        )
+    except (LLMError, LLMAuthError):
         log.exception("Headline generation failed for: %s", story["title"])
-        return None
+        raise
 
     parsed = _parse_headline_response(meta_raw)
     headline = parsed["headline"] or story["title"]
@@ -233,12 +216,8 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
     )
 
 
-def generate_on_the_record(story: dict, client: OpenAI, config: dict) -> Optional[Article]:
+def generate_on_the_record(story: dict, config: dict) -> Optional[Article]:
     """On The Record interview review with assigned tone."""
-    model = config.get("openai", {}).get("model", "gpt-4o-mini")
-    temperature = config.get("openai", {}).get("temperature", 0.85)
-    max_tokens = config.get("openai", {}).get("max_tokens", 2000)
-
     from interview_review import pick_interview_tone
     from taxonomy import (
         normalize_tags,
@@ -290,39 +269,27 @@ def generate_on_the_record(story: dict, client: OpenAI, config: dict) -> Optiona
     )
 
     try:
-        body_resp = client.chat.completions.create(
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            messages=[
-                {"role": "system", "content": review_prompt},
-                {"role": "user", "content": user_input},
-            ],
+        body, _provider = chat_completion(
+            system=review_prompt,
+            user=user_input,
+            config=config,
+            task="body",
         )
-        body = body_resp.choices[0].message.content.strip()
-    except Exception:
+    except (LLMError, LLMAuthError):
         log.exception("On The Record body failed: %s", story["title"])
-        return None
+        raise
 
     try:
-        headline_temp = config.get("openai", {}).get("headline_temperature", 0.9)
-        meta_resp = client.chat.completions.create(
-            model=model,
-            temperature=headline_temp,
-            max_tokens=350,
-            messages=[
-                {
-                    "role": "system",
-                    "content": headline_prompt
-                    + "\n\nThis is an On The Record interview review. Headline should signal opinion/review, not neutral wire copy.",
-                },
-                {"role": "user", "content": body},
-            ],
+        meta_raw, _provider = chat_completion(
+            system=headline_prompt
+            + "\n\nThis is an On The Record interview review. Headline should signal opinion/review, not neutral wire copy.",
+            user=body,
+            config=config,
+            task="headline",
         )
-        meta_raw = meta_resp.choices[0].message.content.strip()
-    except Exception:
+    except (LLMError, LLMAuthError):
         log.exception("On The Record headline failed: %s", story["title"])
-        return None
+        raise
 
     parsed = _parse_headline_response(meta_raw)
     headline = parsed["headline"] or story["title"]
@@ -471,13 +438,15 @@ def attach_images(articles: list[Article], config: dict | None = None) -> None:
 def generate_batch(stories: list[dict]) -> list[Article]:
     """Generate articles for a batch of stories."""
     config = _load_config()
-    api_key = (os.environ.get("OPENAI_API_KEY") or "").strip()
-    if not api_key:
+    if not ensure_providers(config):
         from notifier import notify_error
 
-        notify_error("OPENAI_API_KEY is missing in environment / GitHub Secrets.")
+        notify_error(
+            "No LLM API keys configured. Set GEMINI_API_KEY and/or GROQ_API_KEY "
+            "in GitHub Secrets (or .env locally)."
+        )
         return []
-    client = OpenAI(api_key=api_key)
+
     delay = config.get("pipeline", {}).get("delay_between_articles_seconds", 25)
 
     articles: list[Article] = []
@@ -487,13 +456,13 @@ def generate_batch(stories: list[dict]) -> list[Article]:
             time.sleep(delay)
         log.info("Generating article for: %s", story["title"])
         try:
-            article = generate_article(story, client, config)
-        except AuthenticationError:
+            article = generate_article(story, config)
+        except (LLMError, LLMAuthError) as exc:
             from notifier import notify_error
 
             notify_error(
-                "OpenAI authentication failed (401). "
-                "Check GitHub Secret OPENAI_API_KEY (invalid/expired key)."
+                f"LLM generation failed: {exc}. "
+                "Check GEMINI_API_KEY / GROQ_API_KEY in GitHub Secrets."
             )
             break
         if article:

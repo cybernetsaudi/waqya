@@ -7,7 +7,8 @@ on:
   workflow_dispatch: # Allow manual trigger from the GitHub Actions UI
 
 env:
-  OPENAI_API_KEY:      ${{ secrets.OPENAI_API_KEY }}
+  GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
+  GROQ_API_KEY:        ${{ secrets.GROQ_API_KEY }}
   NEWSAPI_KEY:         ${{ secrets.NEWSAPI_KEY }}
   WP_URL:              ${{ secrets.WP_URL }}
   WP_USER:             ${{ secrets.WP_USER }}

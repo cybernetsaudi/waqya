@@ -54,11 +54,15 @@ def estimate_run_cost(
 ) -> float:
     est = {**DEFAULT_ESTIMATES, **config.get("budget", {}).get("estimates", {})}
     cost = float(est.get("pipeline_base_per_run", 0.02))
-    cost += articles * (
-        float(est.get("openai_per_article_tokens", 2500))
-        / 1000
-        * float(est.get("openai_per_1k_output_tokens", 0.0006))
-    )
+    llm_per_article = est.get("llm_per_article_usd")
+    if llm_per_article is not None:
+        cost += articles * float(llm_per_article)
+    else:
+        cost += articles * (
+            float(est.get("openai_per_article_tokens", 2500))
+            / 1000
+            * float(est.get("openai_per_1k_output_tokens", 0.0006))
+        )
     cost += newsapi_requests * float(est.get("newsapi_per_request", 0))
     cost += pexels_searches * float(est.get("pexels_per_search", 0))
     return round(cost, 4)

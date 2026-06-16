@@ -136,12 +136,35 @@ newsapi:
       category: technology-ai
       page_size: 8
 
-# OpenAI model settings
+# OpenAI model settings (legacy — pipeline uses llm.* below)
 openai:
   model: "gpt-4o-mini"
   temperature: 0.85
   headline_temperature: 0.9
   max_tokens: 2000
+
+# LLM routing — Gemini for body quality, Groq for fast headlines + fallback
+llm:
+  body:
+    primary: gemini
+    fallback: groq
+  headline:
+    primary: groq
+    fallback: gemini
+  gemini:
+    model: gemini-2.0-flash
+    vertexai: true          # AQ.* keys from Google Cloud express / Vertex
+    temperature: 0.85
+    max_output_tokens: 2000
+    headline_temperature: 0.9
+    headline_max_output_tokens: 512
+  groq:
+    model: llama-3.3-70b-versatile
+    headline_model: llama-3.1-8b-instant
+    temperature: 0.85
+    headline_temperature: 0.9
+    max_tokens: 2000
+    headline_max_tokens: 400
 
 default_category: current-affairs
 
@@ -211,6 +234,7 @@ budget:
   alert_at_percent: 80
   weekly_summary: true
   estimates:
+    llm_per_article_usd: 0.0
     openai_per_1k_output_tokens: 0.0006
     openai_per_article_tokens: 2500
     pipeline_base_per_run: 0.02
