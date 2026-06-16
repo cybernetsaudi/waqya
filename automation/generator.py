@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
-from openai import OpenAI
+from openai import AuthenticationError, OpenAI
 
 log = logging.getLogger(__name__)
 
@@ -141,6 +141,9 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
             ],
         )
         body = body_resp.choices[0].message.content.strip()
+    except AuthenticationError:
+        # Fatal: continuing will just burn time and produce zero output.
+        raise
     except Exception:
         log.exception("Body generation failed for: %s", story["title"])
         return None
@@ -158,6 +161,8 @@ def generate_article(story: dict, client: OpenAI, config: dict) -> Optional[Arti
             ],
         )
         meta_raw = meta_resp.choices[0].message.content.strip()
+    except AuthenticationError:
+        raise
     except Exception:
         log.exception("Headline generation failed for: %s", story["title"])
         return None
@@ -466,7 +471,13 @@ def attach_images(articles: list[Article], config: dict | None = None) -> None:
 def generate_batch(stories: list[dict]) -> list[Article]:
     """Generate articles for a batch of stories."""
     config = _load_config()
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    api_key = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    if not api_key:
+        from notifier import notify_error
+
+        notify_error("OPENAI_API_KEY is missing in environment / GitHub Secrets.")
+        return []
+    client = OpenAI(api_key=api_key)
     delay = config.get("pipeline", {}).get("delay_between_articles_seconds", 25)
 
     articles: list[Article] = []
@@ -475,7 +486,16 @@ def generate_batch(stories: list[dict]) -> list[Article]:
             log.info("Waiting %ds before next article (rate limit)", delay)
             time.sleep(delay)
         log.info("Generating article for: %s", story["title"])
-        article = generate_article(story, client, config)
+        try:
+            article = generate_article(story, client, config)
+        except AuthenticationError:
+            from notifier import notify_error
+
+            notify_error(
+                "OpenAI authentication failed (401). "
+                "Check GitHub Secret OPENAI_API_KEY (invalid/expired key)."
+            )
+            break
         if article:
             articles.append(article)
             log.info("  → %s", article.headline)

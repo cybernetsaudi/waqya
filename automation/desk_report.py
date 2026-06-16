@@ -15,12 +15,26 @@ log = logging.getLogger(__name__)
 
 
 def _wp_auth() -> tuple[str, tuple[str, str]]:
-    base = os.environ["WP_URL"].rstrip("/")
-    return base, (os.environ["WP_USER"], os.environ["WP_APP_PASSWORD"])
+    """
+    Return WP base URL + basic auth tuple.
+
+    Weekly summaries run in multiple contexts; if WP credentials are missing,
+    callers should treat desk reporting as unavailable rather than crashing.
+    """
+    base = os.environ.get("WP_URL", "").strip().rstrip("/")
+    user = os.environ.get("WP_USER", "").strip()
+    app_pw = os.environ.get("WP_APP_PASSWORD", "").strip()
+    if not base or not user or not app_pw:
+        raise RuntimeError("Missing WP_URL/WP_USER/WP_APP_PASSWORD")
+    return base, (user, app_pw)
 
 
 def fetch_desk_counts(*, days: int = 7) -> dict[str, int]:
-    base, auth = _wp_auth()
+    try:
+        base, auth = _wp_auth()
+    except Exception as exc:
+        log.warning("Desk report disabled: %s", exc)
+        return {}
     after = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
 
     try:
