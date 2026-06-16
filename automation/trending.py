@@ -173,23 +173,35 @@ def score_story_text(text: str, trending: list[tuple[str, float]]) -> float:
     return score
 
 
-def fetch_newsapi_for_query(api_key: str, query: str, page_size: int = 10) -> list[dict]:
+def fetch_newsapi_for_query(
+    api_key: str,
+    query: str,
+    page_size: int = 10,
+    config: dict | None = None,
+) -> list[dict]:
     """Pull articles matching a hot trending phrase."""
     if not api_key or not query:
         return []
+    if config is None:
+        return []
+
+    from newsapi_budget import get
+
+    resp = get(
+        config,
+        "https://newsapi.org/v2/everything",
+        params={
+            "apiKey": api_key,
+            "q": query[:100],
+            "language": "en",
+            "sortBy": "publishedAt",
+            "pageSize": page_size,
+        },
+        label=f"query:{query[:40]}",
+    )
+    if resp is None:
+        return []
     try:
-        resp = requests.get(
-            "https://newsapi.org/v2/everything",
-            params={
-                "apiKey": api_key,
-                "q": query[:100],
-                "language": "en",
-                "sortBy": "publishedAt",
-                "pageSize": page_size,
-            },
-            timeout=12,
-        )
-        resp.raise_for_status()
         out = []
         for art in resp.json().get("articles", []):
             title = (art.get("title") or "").strip()
@@ -209,5 +221,5 @@ def fetch_newsapi_for_query(api_key: str, query: str, page_size: int = 10) -> li
             )
         return out
     except Exception:
-        log.exception("NewsAPI query failed: %s", query)
+        log.exception("NewsAPI query parse failed: %s", query)
         return []

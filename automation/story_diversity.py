@@ -490,3 +490,38 @@ def select_diverse_stories(
             dict(run_entity_counts),
         )
     return selected[:max_new]
+
+
+def select_diverse_fallback(
+    candidates: list[dict],
+    need: int,
+    *,
+    skip_if_seen: Callable[..., bool] | None = None,
+    exclude_urls: set[str] | None = None,
+) -> list[dict]:
+    """
+    When strict diversity picks nothing, fill from top-scored candidates.
+    Skips WP saturation / cluster blocks; only blocks URLs already published.
+    """
+    if need <= 0:
+        return []
+
+    from dedup import is_url_seen
+    from url_utils import normalize_story_url
+
+    exclude_norm = {normalize_story_url(u) for u in (exclude_urls or set()) if u}
+    scored = sorted(candidates, key=lambda c: float(c.get("trend_score", 0)), reverse=True)
+    picked: list[dict] = []
+    for story in scored:
+        if len(picked) >= need:
+            break
+        url = story.get("url", "")
+        norm = normalize_story_url(url)
+        if norm and norm in exclude_norm:
+            continue
+        if is_url_seen(url):
+            continue
+        picked.append(story)
+        exclude_norm.add(norm)
+
+    return picked

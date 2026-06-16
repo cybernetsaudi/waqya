@@ -16,7 +16,7 @@ import yaml
 
 from dedup import count_seen as _dedup_count, is_seen, mark_seen
 from sources import merge_extra_sources
-from story_diversity import load_diversity_config, select_diverse_stories
+from story_diversity import load_diversity_config, select_diverse_fallback, select_diverse_stories
 from taxonomy import suggest_primary_from_story
 from trending import (
     fetch_newsapi_for_query,
@@ -25,6 +25,19 @@ from trending import (
 )
 
 log = logging.getLogger(__name__)
+
+# Last gather() diagnostics for Telegram / debugging.
+GATHER_STATS: dict = {}
+
+
+def _rotate_items(items: list, per_run: int, bucket: int) -> list:
+    """Pick a sliding window of items so each run uses a different subset."""
+    if not items or per_run <= 0:
+        return []
+    n = len(items)
+    take = min(per_run, n)
+    start = bucket % n
+    return [items[(start + i) % n] for i in range(take)]
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
 CATEGORIES_PATH = os.path.join(os.path.dirname(__file__), "waqya_categories.yaml")
@@ -128,27 +141,35 @@ def gather_newsapi_country_headlines(config: dict) -> list[Story]:
     if not api_key or not api_cfg.get("enabled"):
         return []
 
+    from datetime import datetime, timezone
+
+    from newsapi_budget import get
+
     country_map = api_cfg.get("regional_countries") or {}
+    per_run = int(api_cfg.get("country_headlines_per_run", 2))
+    hour_bucket = datetime.now(timezone.utc).hour
     stories: list[Story] = []
 
-    for country, meta in country_map.items():
+    for country, meta in _rotate_items(list(country_map.items()), per_run, hour_bucket):
         if isinstance(meta, str):
             feed_cat, page_size = meta, 8
         else:
             feed_cat = meta.get("category", "world")
             page_size = int(meta.get("page_size", 8))
+        resp = get(
+            config,
+            "https://newsapi.org/v2/top-headlines",
+            params={
+                "apiKey": api_key,
+                "country": country,
+                "pageSize": page_size,
+                "language": "en",
+            },
+            label=f"country:{country}",
+        )
+        if resp is None:
+            continue
         try:
-            resp = requests.get(
-                "https://newsapi.org/v2/top-headlines",
-                params={
-                    "apiKey": api_key,
-                    "country": country,
-                    "pageSize": page_size,
-                    "language": "en",
-                },
-                timeout=12,
-            )
-            resp.raise_for_status()
             for article in resp.json().get("articles", []):
                 title = (article.get("title") or "").strip()
                 url = (article.get("url") or "").strip()
@@ -166,7 +187,7 @@ def gather_newsapi_country_headlines(config: dict) -> list[Story]:
                     )
                 )
         except Exception:
-            log.exception("NewsAPI country headlines failed: %s", country)
+            log.exception("NewsAPI country headlines parse failed: %s", country)
 
     log.info("NewsAPI regional countries → %d items", len(stories))
     return stories
@@ -179,20 +200,26 @@ def gather_newsapi_topic_queries(config: dict) -> list[Story]:
     if not api_key or not api_cfg.get("enabled"):
         return []
 
+    from datetime import datetime, timezone
+
+    queries = api_cfg.get("topic_queries", [])
+    per_run = int(api_cfg.get("topic_queries_per_run", 3))
+    hour_bucket = datetime.now(timezone.utc).hour // 4
+
     stories: list[Story] = []
-    for item in api_cfg.get("topic_queries", []):
+    for item in _rotate_items(queries, per_run, hour_bucket):
         query = item.get("query", "")
         feed_cat = item.get("category", "world")
         page_size = int(item.get("page_size", 8))
         if not query:
             continue
         story_fmt = item.get("format", "")
-        for raw in fetch_newsapi_for_query(api_key, query, page_size=page_size):
+        for raw in fetch_newsapi_for_query(api_key, query, page_size=page_size, config=config):
             stories.append(
                 Story(
                     title=raw["title"],
                     url=raw["url"],
-                    source=f"NewsAPI:q",
+                    source="NewsAPI:q",
                     summary=raw["summary"],
                     category=feed_cat,
                     published=raw.get("published"),
@@ -222,7 +249,7 @@ def gather_on_the_record(config: dict) -> list[Story]:
             continue
         feed_cat = item.get("category", otr.get("default_desk", "united-states"))
         page_size = int(item.get("page_size", 6))
-        for raw in fetch_newsapi_for_query(api_key, query, page_size=page_size):
+        for raw in fetch_newsapi_for_query(api_key, query, page_size=page_size, config=config):
             stories.append(
                 Story(
                     title=raw["title"],
@@ -242,7 +269,7 @@ def gather_on_the_record(config: dict) -> list[Story]:
 
 def gather_newsapi(config: dict) -> list[Story]:
     api_cfg = config.get("newsapi", {})
-    if not api_cfg.get("enabled"):
+    if not api_cfg.get("enabled") or not api_cfg.get("everything_enabled", False):
         return []
 
     api_key = os.environ.get("NEWSAPI_KEY", "")
@@ -250,20 +277,26 @@ def gather_newsapi(config: dict) -> list[Story]:
         log.warning("NEWSAPI_KEY not set — skipping NewsAPI")
         return []
 
+    from newsapi_budget import get
+
     stories: list[Story] = []
+    resp = get(
+        config,
+        "https://newsapi.org/v2/everything",
+        params={
+            "apiKey": api_key,
+            "domains": api_cfg.get("domains", ""),
+            "language": api_cfg.get("language", "en"),
+            "sortBy": api_cfg.get("sort_by", "publishedAt"),
+            "pageSize": api_cfg.get("page_size", 20),
+        },
+        timeout=15,
+        label="everything:domains",
+    )
+    if resp is None:
+        log.info("NewsAPI everything → 0 items")
+        return stories
     try:
-        resp = requests.get(
-            "https://newsapi.org/v2/everything",
-            params={
-                "apiKey": api_key,
-                "domains": api_cfg.get("domains", ""),
-                "language": api_cfg.get("language", "en"),
-                "sortBy": api_cfg.get("sort_by", "publishedAt"),
-                "pageSize": api_cfg.get("page_size", 20),
-            },
-            timeout=15,
-        )
-        resp.raise_for_status()
         for article in resp.json().get("articles", []):
             title = (article.get("title") or "").strip()
             url = (article.get("url") or "").strip()
@@ -290,8 +323,10 @@ def gather_newsapi_top_headlines(config: dict) -> list[Story]:
     """Top headlines endpoint (free tier) — high-engagement stories."""
     api_key = os.environ.get("NEWSAPI_KEY", "")
     api_cfg = config.get("newsapi", {})
-    if not api_key:
+    if not api_key or not api_cfg.get("top_headlines_enabled", False):
         return []
+
+    from newsapi_budget import get
 
     stories: list[Story] = []
     categories = api_cfg.get(
@@ -299,18 +334,20 @@ def gather_newsapi_top_headlines(config: dict) -> list[Story]:
         ["general", "business", "technology"],
     )
     for cat in categories:
+        resp = get(
+            config,
+            "https://newsapi.org/v2/top-headlines",
+            params={
+                "apiKey": api_key,
+                "language": "en",
+                "pageSize": int(api_cfg.get("top_headlines_page_size", 12)),
+                "category": cat,
+            },
+            label=f"top-headlines:{cat}",
+        )
+        if resp is None:
+            continue
         try:
-            resp = requests.get(
-                "https://newsapi.org/v2/top-headlines",
-                params={
-                    "apiKey": api_key,
-                    "language": "en",
-                    "pageSize": int(api_cfg.get("top_headlines_page_size", 12)),
-                    "category": cat,
-                },
-                timeout=12,
-            )
-            resp.raise_for_status()
             feed_cat = {"technology": "tech", "business": "business", "science": "science"}.get(
                 cat, "world"
             )
@@ -352,7 +389,7 @@ def gather_trending_queries(config: dict, trending: list[tuple[str, float]]) -> 
         phrases = [kw for kw, _ in trending[:n_queries]]
 
     for phrase in phrases:
-        for raw in fetch_newsapi_for_query(api_key, phrase, page_size=5):
+        for raw in fetch_newsapi_for_query(api_key, phrase, page_size=5, config=config):
             stories.append(
                 Story(
                     title=raw["title"],
@@ -413,9 +450,15 @@ def _dedupe_stories(stories: list[Story]) -> list[Story]:
 
 
 def gather(max_new: int | None = None) -> list[dict]:
+    global GATHER_STATS
     config = load_config()
     if max_new is None:
         max_new = config.get("pipeline", {}).get("max_articles_per_run", 5)
+
+    from newsapi_budget import begin_run, usage_summary
+
+    begin_run(config)
+    log.info(usage_summary(config))
 
     log.info("Loading trending topics…")
     trending = fetch_trending_keywords(config)
@@ -480,10 +523,29 @@ def gather(max_new: int | None = None) -> list[dict]:
         skip_if_seen=_skip_if_seen,
     )
 
+    if len(picked) < max_new and eligible_count > len(picked):
+        extra = select_diverse_fallback(
+            candidates,
+            max_new - len(picked),
+            skip_if_seen=_skip_if_seen,
+            exclude_urls={s.get("url", "") for s in picked},
+        )
+        if extra:
+            log.info("Diversity fallback added %d stories (saturation bypass)", len(extra))
+            picked = picked + extra
+
     new_stories: list[dict] = []
     for story in picked:
         mark_seen(story["title"], story["url"], story["source"])
         new_stories.append(story)
+
+    GATHER_STATS = {
+        "candidates": len(candidates),
+        "eligible": eligible_count,
+        "picked": len(new_stories),
+        "seen_db": _dedup_count(),
+        "newsapi": usage_summary(config),
+    }
 
     log.info("New stories after diversity selection: %d", len(new_stories))
     return new_stories

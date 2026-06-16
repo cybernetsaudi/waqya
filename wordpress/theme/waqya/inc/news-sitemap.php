@@ -67,6 +67,13 @@ function waqya_news_sitemap_render(): void
     status_header(200);
     nocache_headers();
 
+    if (! defined('DONOTCACHEPAGE')) {
+        define('DONOTCACHEPAGE', true);
+    }
+    if (function_exists('litespeed_control_set_nocache')) {
+        litespeed_control_set_nocache('news sitemap');
+    }
+
     $posts = get_posts([
         'post_type'      => 'post',
         'post_status'    => 'publish',

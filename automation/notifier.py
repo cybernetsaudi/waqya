@@ -92,6 +92,27 @@ def notify_error(error_msg: str) -> bool:
     return send_message(text)
 
 
+def notify_gather_empty(stats: dict) -> bool:
+    """Alert when the pipeline ran but found no publishable stories."""
+    if not stats:
+        return False
+    lines = [
+        "<b>⚠️ Waqya pipeline — no new stories</b>",
+        "",
+        f"Candidates in feeds: {stats.get('candidates', '?')}",
+        f"Passed dedup: {stats.get('eligible', '?')}",
+        f"Picked to publish: {stats.get('picked', 0)}",
+        f"seen.db entries: {stats.get('seen_db', '?')}",
+        stats.get("newsapi", ""),
+        "",
+        "RSS/Google News still run; NewsAPI is budget-capped. "
+        "Diversity fallback may still block if all URLs were already published.",
+        "",
+        "Check GitHub Actions logs or run: <code>python pipeline.py</code>",
+    ]
+    return send_message("\n".join(lines))
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     from dotenv import load_dotenv

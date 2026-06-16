@@ -65,7 +65,7 @@ rss_feeds: []
 
 trending:
   enabled: true
-  newsapi_top_headlines: true
+  newsapi_top_headlines: false  # saves ~5 NewsAPI calls/run — use Google Trends + RSS instead
   google_trends: true
   # Regional Google Trends RSS (geo codes) — boosts incident/crime stories when they spike locally
   google_trends_geos:
@@ -82,12 +82,17 @@ trending:
     - geo: AE
       weight: 3.0
   max_keywords: 55
-  search_top_queries: 4
+  search_top_queries: 2
 
-# NewsAPI settings (supplements RSS)
+# NewsAPI settings (supplements RSS — free tier ~100 req/day; budget enforced in newsapi_budget.py)
 newsapi:
   enabled: true
-  # Developer (free) tier: ~100 requests/day — budget ~26/run × 6 runs/day (topic_queries are the main cost)
+  max_requests_per_day: 90
+  max_requests_per_run: 12
+  topic_queries_per_run: 3
+  country_headlines_per_run: 2
+  top_headlines_enabled: false
+  everything_enabled: false
   domains: "bbc.co.uk,reuters.com,techcrunch.com,theverge.com,arstechnica.com,aljazeera.com,theguardian.com,dw.com,france24.com"
   language: "en"
   sort_by: "publishedAt"

@@ -42,7 +42,7 @@ def run() -> int:
 
     maybe_send_weekly_summary(config)
 
-    prune(max_age_days=7)
+    prune(max_age_days=3)
     prune_images(max_age_days=90)
 
     try:
@@ -65,6 +65,13 @@ def run() -> int:
     stories = gather()
     if not stories:
         log.info("No new stories found — nothing to do")
+        try:
+            from gatherer import GATHER_STATS
+            from notifier import notify_gather_empty
+
+            notify_gather_empty(GATHER_STATS)
+        except Exception:
+            log.exception("Empty-gather notification failed")
         maybe_alert_monthly_cap(config)
         return 0
 

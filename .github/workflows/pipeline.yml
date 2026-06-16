@@ -44,7 +44,8 @@ jobs:
             automation/seen.db
             automation/images.db
             automation/budget_usage.json
-          key: waqya-dedup-v3
+            automation/newsapi_usage.json
+          key: waqya-dedup-v4
 
       - name: Run pipeline
         working-directory: automation
