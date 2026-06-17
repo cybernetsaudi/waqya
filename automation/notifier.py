@@ -119,11 +119,10 @@ def notify_publish_failed(article_count: int) -> bool:
         "<b>⚠️ Waqya pipeline — publish failed</b>",
         "",
         f"Generated {article_count} article{'s' if article_count != 1 else ''}, "
-        "but WordPress returned 403 on all REST API calls.",
+        "but nothing reached WordPress (403 after retries).",
         "",
-        "Fix: update GitHub Secrets <code>WP_URL</code>, <code>WP_USER</code>, "
-        "<code>WP_APP_PASSWORD</code> (use a fresh Application Password).",
-        "Hostinger may also block cloud IPs — we now send a proper User-Agent.",
+        "Usually Hostinger WAF blocking GitHub Actions IPs — not a bad password.",
+        "Check hPanel WAF / allow <code>/wp-json/*</code>. Secrets are OK if local runs work.",
         "",
         "Check Actions logs for <code>wp-json/wp/v2/posts</code> errors.",
     ]

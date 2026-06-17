@@ -5,6 +5,13 @@ site:
   tagline: "The incident is the story. We unpack what happened—and what it means next."
   url: "https://waqya.com"
 
+# WordPress REST API (GitHub Actions → Hostinger)
+wordpress:
+  retry_max_attempts: 5
+  retry_backoff_seconds: 3
+  retry_status_codes: [403, 429, 502, 503, 504]
+  request_delay_seconds: 0.25
+
 # How many articles to generate per pipeline run
 pipeline:
   max_articles_per_run: 10
