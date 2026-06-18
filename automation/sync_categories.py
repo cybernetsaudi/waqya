@@ -61,11 +61,7 @@ def sync_all() -> int:
     for key, cat in data.get("primary_categories", {}).items():
         name = cat["label"]
         slug = cat.get("slug") or _slugify(key.replace("_", "-"))
-        desc = (
-            f"{cat.get('description', '')} "
-            f"[{cat.get('menu_group', '')}] "
-            f"IPTC ref: {cat.get('iptc_reference', '')}"
-        ).strip()
+        desc = (cat.get("description") or "").strip()
 
         if name.lower() in existing:
             cat_id = existing[name.lower()]["id"]

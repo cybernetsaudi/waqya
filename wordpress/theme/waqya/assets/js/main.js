@@ -1,12 +1,12 @@
 /**
- * Waqya theme — header interactions
+ * Waqya theme — header interactions + mobile section menu
  */
 (function () {
   'use strict';
 
   const menuToggle = document.querySelector('[data-menu-toggle]');
   const searchToggle = document.querySelector('[data-search-toggle]');
-  const nav = document.getElementById('site-nav'); // .site-nav-section
+  const nav = document.getElementById('site-nav');
   const searchPanel = document.getElementById('site-search');
   const searchInput = searchPanel?.querySelector('.search-form__input');
 
@@ -17,29 +17,41 @@
     document.body.classList.toggle('search-open', expanded && button === searchToggle);
   }
 
+  function closeMenu() {
+    if (!menuToggle || !nav) return;
+    setExpanded(menuToggle, false);
+    nav.classList.remove('is-open');
+  }
+
+  function closeSearch() {
+    if (!searchToggle || !searchPanel) return;
+    setExpanded(searchToggle, false);
+    searchPanel.setAttribute('hidden', '');
+  }
+
   if (menuToggle && nav) {
-    menuToggle.addEventListener('click', () => {
+    menuToggle.addEventListener('click', (event) => {
+      event.preventDefault();
       const open = menuToggle.getAttribute('aria-expanded') === 'true';
-      setExpanded(menuToggle, !open);
-      nav.classList.toggle('is-open', !open);
-      if (!open && searchToggle) {
-        setExpanded(searchToggle, false);
-        searchPanel?.setAttribute('hidden', '');
+      const next = !open;
+      setExpanded(menuToggle, next);
+      nav.classList.toggle('is-open', next);
+      if (next) {
+        closeSearch();
       }
     });
   }
 
   if (searchToggle && searchPanel) {
-    searchToggle.addEventListener('click', () => {
+    searchToggle.addEventListener('click', (event) => {
+      event.preventDefault();
       const open = searchToggle.getAttribute('aria-expanded') === 'true';
-      setExpanded(searchToggle, !open);
-      if (!open) {
+      const next = !open;
+      setExpanded(searchToggle, next);
+      if (next) {
         searchPanel.removeAttribute('hidden');
         searchInput?.focus();
-        if (menuToggle) {
-          setExpanded(menuToggle, false);
-          nav?.classList.remove('is-open');
-        }
+        closeMenu();
       } else {
         searchPanel.setAttribute('hidden', '');
       }
@@ -48,23 +60,21 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      if (menuToggle) {
-        setExpanded(menuToggle, false);
-        nav?.classList.remove('is-open');
-      }
-      if (searchToggle) {
-        setExpanded(searchToggle, false);
-        searchPanel?.setAttribute('hidden', '');
-      }
+      closeMenu();
+      closeSearch();
     }
   });
 
   window.addEventListener('resize', () => {
-    if (window.matchMedia('(min-width: 768px)').matches && nav) {
-      nav.classList.remove('is-open');
-      if (menuToggle) {
-        setExpanded(menuToggle, false);
-      }
+    if (window.matchMedia('(min-width: 768px)').matches) {
+      closeMenu();
+    }
+  });
+
+  nav?.addEventListener('click', (event) => {
+    const link = event.target.closest('a');
+    if (link && nav.classList.contains('is-open')) {
+      closeMenu();
     }
   });
 })();

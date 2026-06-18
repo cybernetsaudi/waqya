@@ -166,7 +166,7 @@ def _block_to_html(block: str) -> str:
 
     if block.startswith("## "):
         lines = block.split("\n", 1)
-        title = html_module.escape(lines[0][3:].strip())
+        title = html_module.escape(_normalize_text(lines[0][3:]))
         html = f"<h2>{title}</h2>"
         if len(lines) > 1 and lines[1].strip():
             html += "\n\n" + _block_to_html(lines[1].strip())
@@ -174,7 +174,7 @@ def _block_to_html(block: str) -> str:
 
     if block.startswith("### "):
         lines = block.split("\n", 1)
-        title = html_module.escape(lines[0][4:].strip())
+        title = html_module.escape(_normalize_text(lines[0][4:]))
         html = f"<h3>{title}</h3>"
         if len(lines) > 1 and lines[1].strip():
             html += "\n\n" + _paragraphs_to_html(lines[1].strip())
@@ -183,12 +183,16 @@ def _block_to_html(block: str) -> str:
     return _paragraphs_to_html(block)
 
 
+def _normalize_text(text: str) -> str:
+    return html_module.unescape(text.strip())
+
+
 def _paragraphs_to_html(text: str) -> str:
     parts = [p.strip() for p in text.split("\n\n") if p.strip()]
     if not parts:
         return ""
     return "\n\n".join(
-        _block_to_html(p) if p.startswith("#") else f"<p>{html_module.escape(p)}</p>"
+        _block_to_html(p) if p.startswith("#") else f"<p>{html_module.escape(_normalize_text(p))}</p>"
         for p in parts
     )
 

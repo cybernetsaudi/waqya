@@ -163,6 +163,25 @@ function waqya_register_entity_decode_filters(): void
 add_action('init', 'waqya_register_entity_decode_filters');
 
 /**
+ * Decode &#x27; / &amp;#8217; style entities in post body text nodes.
+ */
+function waqya_decode_content_text_entities(string $content): string
+{
+    if ($content === '' || (strpos($content, '&#') === false && strpos($content, '&amp;') === false)) {
+        return $content;
+    }
+
+    return (string) preg_replace_callback(
+        '/>([^<]+)</',
+        static function (array $matches): string {
+            return '>' . waqya_decode_entities($matches[1]) . '<';
+        },
+        $content
+    );
+}
+add_filter('the_content', 'waqya_decode_content_text_entities', 7);
+
+/**
  * Desk label for article byline (from pipeline meta or category).
  */
 function waqya_desk_byline_label(): string
@@ -221,8 +240,8 @@ function waqya_fix_broken_headings(string $content): string
                     $parts = preg_split('/\R+/', trim($inner), 2);
                 }
 
-                $title = trim(wp_strip_all_tags($parts[0] ?? ''));
-                $rest = trim(wp_strip_all_tags($parts[1] ?? ''));
+                $title = trim(waqya_decode_entities(wp_strip_all_tags($parts[0] ?? '')));
+                $rest = trim(waqya_decode_entities(wp_strip_all_tags($parts[1] ?? '')));
                 if ($title === '' || ($rest === '' && ! $looks_long)) {
                     return $matches[0];
                 }

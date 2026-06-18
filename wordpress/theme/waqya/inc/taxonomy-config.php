@@ -123,20 +123,34 @@ function waqya_category_label(WP_Term $term): string
 }
 
 /**
- * Description for category archive from JSON.
+ * Strip internal IPTC/menu metadata accidentally synced to term descriptions.
+ */
+function waqya_clean_category_description(string $desc): string
+{
+    if ($desc === '') {
+        return '';
+    }
+
+    $desc = preg_replace('/\s*\[[^\]]+\]\s*IPTC ref:\s*\S+\s*/i', '', $desc) ?? $desc;
+
+    return trim($desc);
+}
+
+/**
+ * Description for category archive from JSON (never show IPTC admin notes).
  */
 function waqya_category_description(WP_Term $term): string
 {
-    $native = term_description($term->term_id, 'category');
-    if ($native !== '') {
-        return $native;
-    }
-
     foreach (waqya_primary_categories() as $meta) {
         if (($meta['slug'] ?? '') === $term->slug) {
-            return (string) ($meta['description'] ?? '');
+            $from_json = (string) ($meta['description'] ?? '');
+            if ($from_json !== '') {
+                return $from_json;
+            }
         }
     }
 
-    return '';
+    $native = term_description($term->term_id, 'category');
+
+    return waqya_clean_category_description($native);
 }

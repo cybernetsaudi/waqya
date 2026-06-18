@@ -1,6 +1,6 @@
 <?php
 /**
- * Grouped section navigation (News Desk / Regions / Topics)
+ * Grouped section navigation (News Desk / Regions / Topics + formats)
  *
  * @package Waqya
  */
@@ -18,8 +18,20 @@ if (is_category()) {
         $current_slug = $term->slug;
     }
 }
+
+$is_otr = is_tag('on-the-record') || (is_tax('post_tag') && get_query_var('tag') === 'on-the-record');
 ?>
 <nav class="site-nav-groups" aria-label="<?php esc_attr_e('Sections', 'waqya'); ?>">
+    <div class="site-nav-groups__formats">
+        <a
+            class="site-nav-groups__format-link<?php echo $is_otr ? ' is-current' : ''; ?>"
+            href="<?php echo esc_url(waqya_on_the_record_url()); ?>"
+            <?php echo $is_otr ? ' aria-current="page"' : ''; ?>
+        >
+            <?php esc_html_e('On The Record', 'waqya'); ?>
+        </a>
+    </div>
+
     <ul class="site-nav-groups__tabs" role="tablist">
         <?php foreach ($groups as $i => $group) : ?>
             <?php
@@ -63,10 +75,10 @@ if (is_category()) {
                 <ul class="site-nav-groups__links">
                     <?php foreach ($items as $key) : ?>
                         <?php
-                        $meta      = waqya_primary_category((string) $key);
-                        $slug      = $meta['slug'] ?? (string) $key;
+                        $meta       = waqya_primary_category((string) $key);
+                        $slug       = $meta['slug'] ?? (string) $key;
                         $item_label = $meta['label'] ?? (string) $key;
-                        $url       = waqya_category_url((string) $key);
+                        $url        = waqya_category_url((string) $key);
                         $is_current = $current_slug === $slug;
                         ?>
                         <li class="site-nav-groups__item">

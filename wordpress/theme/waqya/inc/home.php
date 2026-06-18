@@ -37,15 +37,28 @@ function waqya_home_query(array $args): WP_Query
 function waqya_render_home_menu_group(string $group_id, string $label, array $exclude, int $count = 4): array
 {
     $term_ids = waqya_menu_group_term_ids($group_id);
-    if ($term_ids === []) {
-        return [];
+    $section  = new WP_Query();
+
+    if ($term_ids !== []) {
+        $section = waqya_home_query([
+            'category__in'   => $term_ids,
+            'posts_per_page' => $count,
+            'post__not_in'   => $exclude,
+        ]);
     }
 
-    $section = waqya_home_query([
-        'category__in'   => $term_ids,
-        'posts_per_page' => $count,
-        'post__not_in'   => $exclude,
-    ]);
+    if (! $section->have_posts()) {
+        $section = waqya_home_query([
+            'posts_per_page' => $count,
+            'post__not_in'   => $exclude,
+            'meta_query'     => [
+                [
+                    'key'   => '_waqya_menu_group',
+                    'value' => $group_id,
+                ],
+            ],
+        ]);
+    }
 
     if (! $section->have_posts()) {
         return [];
@@ -75,27 +88,79 @@ function waqya_render_home_menu_group(string $group_id, string $label, array $ex
 }
 
 /**
- * Posts tagged Breaking from the last 48 hours.
+ * Developing / breaking stories (homepage strip).
  */
+function waqya_developing_post_ids(array $exclude = [], int $limit = 5): array
+{
+    $exclude = array_map('intval', $exclude);
+    $found   = [];
+    $after   = gmdate('Y-m-d H:i:s', time() - 72 * HOUR_IN_SECONDS);
+
+    $by_meta = get_posts([
+        'post_type'              => 'post',
+        'post_status'            => 'publish',
+        'posts_per_page'         => $limit * 2,
+        'post__not_in'           => $exclude,
+        'orderby'                => 'modified',
+        'order'                  => 'DESC',
+        'fields'                 => 'ids',
+        'no_found_rows'          => true,
+        'date_query'             => [['after' => $after, 'inclusive' => true]],
+        'meta_query'             => [
+            'relation' => 'OR',
+            [
+                'key'   => '_waqya_developing',
+                'value' => '1',
+            ],
+            [
+                'key'   => '_waqya_is_breaking',
+                'value' => '1',
+            ],
+        ],
+    ]);
+    foreach ($by_meta as $id) {
+        $found[(int) $id] = (int) get_post_modified_time('U', true, $id);
+    }
+
+    $breaking = get_term_by('slug', 'breaking', 'post_tag');
+    if ($breaking instanceof WP_Term) {
+        $by_tag = get_posts([
+            'post_type'      => 'post',
+            'post_status'    => 'publish',
+            'posts_per_page' => $limit * 2,
+            'post__not_in'   => $exclude,
+            'orderby'        => 'modified',
+            'order'          => 'DESC',
+            'fields'         => 'ids',
+            'no_found_rows'  => true,
+            'tag_id'         => (int) $breaking->term_id,
+            'date_query'     => [['after' => $after, 'inclusive' => true]],
+        ]);
+        foreach ($by_tag as $id) {
+            $found[(int) $id] = (int) get_post_modified_time('U', true, $id);
+        }
+    }
+
+    if ($found === []) {
+        return [];
+    }
+
+    arsort($found);
+
+    return array_slice(array_keys($found), 0, $limit);
+}
+
 function waqya_developing_query(array $exclude = []): WP_Query
 {
+    $ids = waqya_developing_post_ids($exclude, 5);
+    if ($ids === []) {
+        return new WP_Query(['post__in' => [0]]);
+    }
+
     return waqya_home_query([
-        'posts_per_page' => 5,
-        'post__not_in'   => $exclude,
-        'orderby'        => 'modified',
-        'order'          => 'DESC',
-        'date_query'     => [
-            [
-                'after' => '48 hours ago',
-            ],
-        ],
-        'tax_query'      => [
-            [
-                'taxonomy' => 'post_tag',
-                'field'    => 'slug',
-                'terms'    => ['breaking'],
-            ],
-        ],
+        'post__in'       => $ids,
+        'orderby'        => 'post__in',
+        'posts_per_page' => count($ids),
     ]);
 }
 
@@ -202,7 +267,7 @@ function waqya_render_on_the_record_rail(array $exclude): array
 
     $shown = [];
     $tag   = get_term_by('slug', 'on-the-record', 'post_tag');
-    $archive_url = $tag instanceof WP_Term ? get_tag_link($tag) : home_url('/tag/on-the-record/');
+    $archive_url = waqya_on_the_record_url();
     ?>
     <section class="otr-rail" aria-label="<?php esc_attr_e('On The Record', 'waqya'); ?>">
         <header class="otr-rail__header">
@@ -246,7 +311,7 @@ function waqya_render_on_the_record_strip(array $exclude): array
     $q   = waqya_on_the_record_query($exclude);
     $ids = [];
     $tag = get_term_by('slug', 'on-the-record', 'post_tag');
-    $archive_url = $tag instanceof WP_Term ? get_tag_link($tag) : home_url('/tag/on-the-record/');
+    $archive_url = waqya_on_the_record_url();
     ?>
     <section class="home-section home-section--on-the-record" aria-label="<?php esc_attr_e('On The Record', 'waqya'); ?>">
         <header class="home-section__header home-section__header--otr">
