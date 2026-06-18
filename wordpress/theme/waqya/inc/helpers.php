@@ -189,3 +189,38 @@ function waqya_site_tagline(): string
 
     return waqya_brand_tagline();
 }
+
+/**
+ * Repair pipeline headings where a paragraph was merged into h2 (single newline).
+ */
+function waqya_fix_broken_headings(string $content): string
+{
+    if ($content === '' || stripos($content, '<h2') === false) {
+        return $content;
+    }
+
+    return (string) preg_replace_callback(
+        '#<h2([^>]*)>(.*?)</h2>#is',
+        static function (array $matches): string {
+            $attrs = $matches[1];
+            $inner = $matches[2];
+            if (! preg_match('#<br\s*/?>#i', $inner)) {
+                return $matches[0];
+            }
+
+            $parts = preg_split('#<br\s*/?>#i', $inner, 2);
+            $title = trim(wp_strip_all_tags($parts[0] ?? ''));
+            $rest = trim(wp_strip_all_tags($parts[1] ?? ''));
+            if ($title === '') {
+                return $matches[0];
+            }
+
+            $out = '<h2' . $attrs . '>' . esc_html($title) . '</h2>';
+            if ($rest !== '') {
+                $out .= '<p>' . esc_html($rest) . '</p>';
+            }
+            return $out;
+        },
+        $content
+    );
+}

@@ -163,11 +163,34 @@ def _block_to_html(block: str) -> str:
     block = block.strip()
     if not block:
         return ""
+
     if block.startswith("## "):
-        return f"<h2>{html_module.escape(block[3:].strip())}</h2>"
+        lines = block.split("\n", 1)
+        title = html_module.escape(lines[0][3:].strip())
+        html = f"<h2>{title}</h2>"
+        if len(lines) > 1 and lines[1].strip():
+            html += "\n\n" + _block_to_html(lines[1].strip())
+        return html
+
     if block.startswith("### "):
-        return f"<h3>{html_module.escape(block[4:].strip())}</h3>"
-    return f"<p>{html_module.escape(block)}</p>"
+        lines = block.split("\n", 1)
+        title = html_module.escape(lines[0][4:].strip())
+        html = f"<h3>{title}</h3>"
+        if len(lines) > 1 and lines[1].strip():
+            html += "\n\n" + _paragraphs_to_html(lines[1].strip())
+        return html
+
+    return _paragraphs_to_html(block)
+
+
+def _paragraphs_to_html(text: str) -> str:
+    parts = [p.strip() for p in text.split("\n\n") if p.strip()]
+    if not parts:
+        return ""
+    return "\n\n".join(
+        _block_to_html(p) if p.startswith("#") else f"<p>{html_module.escape(p)}</p>"
+        for p in parts
+    )
 
 
 def _build_article_html(article: Article, images: Optional[ArticleImages]) -> str:

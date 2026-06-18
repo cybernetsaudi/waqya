@@ -11,7 +11,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('WAQYA_VERSION', '1.9.4');
+define('WAQYA_VERSION', '1.9.5');
 define('WAQYA_DIR', get_template_directory());
 define('WAQYA_URI', get_template_directory_uri());
 
@@ -208,6 +208,8 @@ function waqya_excerpt_more(string $more): string
     return '&hellip;';
 }
 add_filter('excerpt_more', 'waqya_excerpt_more');
+
+add_filter('the_content', 'waqya_fix_broken_headings', 12);
 
 /**
  * Style source attribution paragraphs from the automation pipeline.
