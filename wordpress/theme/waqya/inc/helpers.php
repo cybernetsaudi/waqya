@@ -191,7 +191,7 @@ function waqya_site_tagline(): string
 }
 
 /**
- * Repair pipeline headings where a paragraph was merged into h2 (single newline).
+ * Repair pipeline headings where a paragraph was merged into h2/h3.
  */
 function waqya_fix_broken_headings(string $content): string
 {
@@ -199,28 +199,43 @@ function waqya_fix_broken_headings(string $content): string
         return $content;
     }
 
-    return (string) preg_replace_callback(
-        '#<h2([^>]*)>(.*?)</h2>#is',
-        static function (array $matches): string {
-            $attrs = $matches[1];
-            $inner = $matches[2];
-            if (! preg_match('#<br\s*/?>#i', $inner)) {
-                return $matches[0];
-            }
+    foreach (['h2', 'h3'] as $tag) {
+        $content = (string) preg_replace_callback(
+            '#<' . $tag . '([^>]*)>(.*?)</' . $tag . '>#is',
+            static function (array $matches) use ($tag): string {
+                $attrs = $matches[1];
+                $inner = $matches[2];
+                $plain_one_line = trim(preg_replace('/\s+/', ' ', wp_strip_all_tags($inner)));
 
-            $parts = preg_split('#<br\s*/?>#i', $inner, 2);
-            $title = trim(wp_strip_all_tags($parts[0] ?? ''));
-            $rest = trim(wp_strip_all_tags($parts[1] ?? ''));
-            if ($title === '') {
-                return $matches[0];
-            }
+                $has_break = (bool) preg_match('#<br\s*/?>#i', $inner);
+                $has_newline = (bool) preg_match('/\R/', $inner);
+                $looks_long = strlen($plain_one_line) > 90;
 
-            $out = '<h2' . $attrs . '>' . esc_html($title) . '</h2>';
-            if ($rest !== '') {
-                $out .= '<p>' . esc_html($rest) . '</p>';
-            }
-            return $out;
-        },
-        $content
-    );
+                if (! $has_break && ! $has_newline && ! $looks_long) {
+                    return $matches[0];
+                }
+
+                if ($has_break) {
+                    $parts = preg_split('#<br\s*/?>#i', $inner, 2);
+                } else {
+                    $parts = preg_split('/\R+/', trim($inner), 2);
+                }
+
+                $title = trim(wp_strip_all_tags($parts[0] ?? ''));
+                $rest = trim(wp_strip_all_tags($parts[1] ?? ''));
+                if ($title === '' || ($rest === '' && ! $looks_long)) {
+                    return $matches[0];
+                }
+
+                $out = '<' . $tag . $attrs . '>' . esc_html($title) . '</' . $tag . '>';
+                if ($rest !== '') {
+                    $out .= '<p>' . esc_html($rest) . '</p>';
+                }
+                return $out;
+            },
+            $content
+        );
+    }
+
+    return $content;
 }
