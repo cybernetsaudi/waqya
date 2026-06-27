@@ -152,6 +152,11 @@ openai:
 
 # LLM routing — Gemini for body quality, Groq for fast headlines + fallback
 llm:
+  retry:
+    max_attempts: 3
+    backoff_seconds: [8, 20, 45]
+    min_body_words: 400
+    min_body_chars: 1200
   body:
     primary: gemini
     fallback: groq
@@ -164,11 +169,12 @@ llm:
     # false = Google AI Studio (generativelanguage.googleapis.com). true = Vertex AI.
     vertexai: false
     temperature: 0.85
-    max_output_tokens: 2000
+    max_output_tokens: 8192
     headline_temperature: 0.9
     headline_max_output_tokens: 512
   groq:
     model: llama-3.3-70b-versatile
+    fallback_model: llama-3.1-8b-instant
     headline_model: llama-3.1-8b-instant
     temperature: 0.85
     headline_temperature: 0.9

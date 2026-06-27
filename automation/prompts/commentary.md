@@ -31,8 +31,10 @@ RULES:
 - NEVER copy or closely paraphrase source text. Facts only from the briefing.
 - ALWAYS attribute factual claims to the source.
 - No headline in the output.
-- 600-1200 words. English only.
+- **Minimum 600 words** — write the full article in one response; do not stop early.
+- English only.
 - Do not invent facts, quotes, statistics, or events not in the briefing.
+- Avoid empty clickbait: no "shockwaves", "sparking outrage", "slams", "blasts", "game-changer".
 
 OUTPUT FORMAT:
 Return ONLY the article body text. Use `## Heading` for subheadings. No other markdown.

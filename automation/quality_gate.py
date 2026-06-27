@@ -103,9 +103,9 @@ def score_article(article: Article, story: dict | None, config: dict) -> Quality
         score -= 25
         notes.append(f"Too short ({words} words)")
 
-    if words < 500:
-        score -= 10
-        notes.append("Below 500-word editorial minimum")
+    if 400 <= words < 500:
+        score -= 5
+        notes.append("Below 500-word editorial target")
 
     if 40 <= len(title) <= 65:
         score += 10
@@ -151,11 +151,11 @@ def score_article(article: Article, story: dict | None, config: dict) -> Quality
 
     if source_title:
         sim = _title_similarity(title, source_title)
-        if sim >= 0.72:
+        if sim >= 0.78:
             score -= 18
             notes.append(f"Headline too close to source ({sim:.0%})")
-        elif sim >= 0.58:
-            score -= 8
+        elif sim >= 0.65:
+            score -= 6
             notes.append(f"Headline resembles source ({sim:.0%})")
 
     tabloid = _tabloid_hits(title + " " + body[:800])

@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import logging
 import os
+import re
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -33,6 +35,10 @@ class LLMAuthError(LLMError):
 
 def _llm_cfg(config: dict) -> dict:
     return config.get("llm", {})
+
+
+def _retry_cfg(config: dict) -> dict:
+    return _llm_cfg(config).get("retry", {})
 
 
 def _provider_order(task: Task, config: dict) -> list[str]:
@@ -68,39 +74,43 @@ def _gemini_params(task: Task, config: dict) -> dict:
     g = _llm_cfg(config).get("gemini", {})
     if task == "headline":
         return {
-            "model": g.get("headline_model", g.get("model", "gemini-2.0-flash")),
+            "model": g.get("headline_model", g.get("model", "gemini-2.5-flash")),
             "temperature": float(g.get("headline_temperature", g.get("temperature", 0.9))),
             "max_output_tokens": int(g.get("headline_max_output_tokens", 512)),
         }
     return {
-        "model": g.get("model", "gemini-2.0-flash"),
+        "model": g.get("model", "gemini-2.5-flash"),
         "temperature": float(g.get("temperature", 0.85)),
         "max_output_tokens": int(g.get("max_output_tokens", 2000)),
     }
 
 
-def _groq_params(task: Task, config: dict) -> dict:
+def _groq_params(task: Task, config: dict, *, model_override: str | None = None) -> dict:
     g = _llm_cfg(config).get("groq", {})
     if task == "headline":
         return {
-            "model": g.get("headline_model", "llama-3.1-8b-instant"),
+            "model": model_override or g.get("headline_model", "llama-3.1-8b-instant"),
             "temperature": float(g.get("headline_temperature", g.get("temperature", 0.9))),
             "max_tokens": int(g.get("headline_max_tokens", 400)),
         }
     return {
-        "model": g.get("model", "llama-3.3-70b-versatile"),
+        "model": model_override or g.get("model", "llama-3.3-70b-versatile"),
         "temperature": float(g.get("temperature", 0.85)),
         "max_tokens": int(g.get("max_tokens", 2000)),
     }
 
 
-def model_for_provider(provider: str, task: Task, config: dict) -> str:
+def model_for_provider(provider: str, task: Task, config: dict, *, model_override: str | None = None) -> str:
     """Return configured model id for logging and post meta."""
     if provider == "gemini":
         return _gemini_params(task, config)["model"]
     if provider == "groq":
-        return _groq_params(task, config)["model"]
+        return _groq_params(task, config, model_override=model_override)["model"]
     return provider
+
+
+def _word_count(text: str) -> int:
+    return len(re.findall(r"\w+", text or ""))
 
 
 def _gemini_client(api_key: str, config: dict):
@@ -145,14 +155,21 @@ def _call_gemini(*, system: str, user: str, task: Task, config: dict) -> str:
     return text
 
 
-def _call_groq(*, system: str, user: str, task: Task, config: dict) -> str:
+def _call_groq(
+    *,
+    system: str,
+    user: str,
+    task: Task,
+    config: dict,
+    model_override: str | None = None,
+) -> str:
     api_key = _groq_key()
     if not api_key:
         raise LLMAuthError("GROQ_API_KEY is not set")
 
     from openai import APIStatusError, AuthenticationError, OpenAI, RateLimitError
 
-    params = _groq_params(task, config)
+    params = _groq_params(task, config, model_override=model_override)
     client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
     try:
         resp = client.chat.completions.create(
@@ -211,21 +228,66 @@ def _is_retryable(exc: Exception) -> bool:
             "504",
             "timeout",
             "overloaded",
+            "unavailable",
         )
     )
 
 
-def chat_completion(
+def _body_limits(config: dict) -> tuple[int, int]:
+    retry = _retry_cfg(config)
+    pipe = config.get("pipeline", {})
+    min_words = int(retry.get("min_body_words", pipe.get("min_words", 400)))
+    min_chars = int(retry.get("min_body_chars", 1200))
+    return min_words, min_chars
+
+
+def _body_too_short(text: str, config: dict) -> bool:
+    min_words, min_chars = _body_limits(config)
+    return _word_count(text) < min_words or len(text) < min_chars
+
+
+def _call_provider(
+    provider: str,
+    *,
+    system: str,
+    user: str,
+    task: Task,
+    config: dict,
+) -> tuple[str, str]:
+    """Call one provider; returns (text, model_id)."""
+    if provider == "gemini":
+        text = _call_gemini(system=system, user=user, task=task, config=config)
+        return text, _gemini_params(task, config)["model"]
+
+    if provider == "groq":
+        groq_fb = _llm_cfg(config).get("groq", {}).get("fallback_model")
+        try:
+            text = _call_groq(system=system, user=user, task=task, config=config)
+            return text, _groq_params(task, config)["model"]
+        except LLMError as exc:
+            if task == "body" and groq_fb and "rate limit" in str(exc).lower():
+                log.warning("Groq primary model rate limited — trying %s", groq_fb)
+                text = _call_groq(
+                    system=system,
+                    user=user,
+                    task=task,
+                    config=config,
+                    model_override=groq_fb,
+                )
+                return text, groq_fb
+            raise
+
+    raise LLMError(f"{provider}: unknown provider")
+
+
+def _attempt_completion(
     *,
     system: str,
     user: str,
     config: dict,
-    task: Task = "body",
-) -> tuple[str, str]:
-    """
-    Generate text using configured provider order for the task.
-    Returns (text, provider_name).
-    """
+    task: Task,
+) -> tuple[str, str, str]:
+    """Try each configured provider once. Returns (text, provider, model_id)."""
     errors: list[str] = []
     for provider in _provider_order(task, config):
         if provider == "gemini" and not _gemini_key():
@@ -235,19 +297,25 @@ def chat_completion(
             errors.append("groq: no API key")
             continue
         try:
-            if provider == "gemini":
-                text = _call_gemini(system=system, user=user, task=task, config=config)
-            elif provider == "groq":
-                text = _call_groq(system=system, user=user, task=task, config=config)
-            else:
-                errors.append(f"{provider}: unknown")
-                continue
-            log.info("LLM %s via %s (%d chars)", task, provider, len(text))
-            return text, provider
+            text, model_id = _call_provider(
+                provider,
+                system=system,
+                user=user,
+                task=task,
+                config=config,
+            )
+            log.info(
+                "LLM %s via %s/%s (%d chars, %d words)",
+                task,
+                provider,
+                model_id,
+                len(text),
+                _word_count(text),
+            )
+            return text, provider, model_id
         except LLMAuthError as exc:
             log.error("%s", exc)
             errors.append(str(exc))
-            # Auth on one provider — still try the other
             continue
         except LLMError as exc:
             log.warning("LLM %s %s failed: %s", task, provider, exc)
@@ -257,6 +325,79 @@ def chat_completion(
     raise LLMError(
         f"All providers failed for {task}: " + "; ".join(errors) if errors else "no providers"
     )
+
+
+def chat_completion(
+    *,
+    system: str,
+    user: str,
+    config: dict,
+    task: Task = "body",
+) -> tuple[str, str, str]:
+    """
+    Generate text using configured provider order for the task.
+    Returns (text, provider_name, model_id).
+    """
+    retry = _retry_cfg(config)
+    max_attempts = int(retry.get("max_attempts", 3 if task == "body" else 2))
+    backoffs = retry.get("backoff_seconds", [8, 20, 45])
+    if not isinstance(backoffs, list):
+        backoffs = [8, 20, 45]
+
+    min_words, min_chars = _body_limits(config)
+    last_error = "no providers"
+
+    for attempt in range(max_attempts):
+        user_msg = user
+        if task == "body" and attempt > 0:
+            user_msg = (
+                f"{user}\n\n"
+                f"IMPORTANT (attempt {attempt + 1}): Your previous draft was too short. "
+                f"Write the COMPLETE article — minimum {min_words} words, "
+                f"with exactly 2–3 ## subheadings and full Hook → Facts → Context → Hot take → Close."
+            )
+
+        try:
+            text, provider, model_id = _attempt_completion(
+                system=system,
+                user=user_msg,
+                config=config,
+                task=task,
+            )
+        except LLMError as exc:
+            last_error = str(exc)
+            if attempt < max_attempts - 1:
+                wait = backoffs[min(attempt, len(backoffs) - 1)]
+                log.warning(
+                    "LLM %s attempt %d/%d failed — retry in %ds: %s",
+                    task,
+                    attempt + 1,
+                    max_attempts,
+                    wait,
+                    exc,
+                )
+                time.sleep(wait)
+                continue
+            raise
+
+        if task == "body" and _body_too_short(text, config):
+            last_error = f"Body too short ({_word_count(text)} words, {len(text)} chars)"
+            if attempt < max_attempts - 1:
+                wait = backoffs[min(attempt, len(backoffs) - 1)]
+                log.warning(
+                    "LLM body attempt %d/%d too short (%d words) — retry in %ds",
+                    attempt + 1,
+                    max_attempts,
+                    _word_count(text),
+                    wait,
+                )
+                time.sleep(wait)
+                continue
+            raise LLMError(f"{last_error} after {max_attempts} attempts")
+
+        return text, provider, model_id
+
+    raise LLMError(f"All providers failed for {task}: {last_error}")
 
 
 def ensure_providers(config: dict | None = None) -> bool:

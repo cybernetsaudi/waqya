@@ -132,7 +132,7 @@ def generate_article(story: dict, config: dict) -> Optional[Article]:
 
     # Step 1: Generate the article body (Gemini → Groq fallback)
     try:
-        body, body_provider = chat_completion(
+        body, body_provider, body_model = chat_completion(
             system=commentary_prompt,
             user=user_input,
             config=config,
@@ -144,7 +144,7 @@ def generate_article(story: dict, config: dict) -> Optional[Article]:
 
     # Step 2: Generate headline + metadata (Groq → Gemini fallback)
     try:
-        meta_raw, headline_provider = chat_completion(
+        meta_raw, headline_provider, headline_model = chat_completion(
             system=headline_prompt,
             user=body,
             config=config,
@@ -153,8 +153,6 @@ def generate_article(story: dict, config: dict) -> Optional[Article]:
     except (LLMError, LLMAuthError):
         log.exception("Headline generation failed for: %s", story["title"])
         raise
-
-    from llm_client import model_for_provider
 
     parsed = _parse_headline_response(meta_raw)
     headline = parsed["headline"] or story["title"]
@@ -221,8 +219,8 @@ def generate_article(story: dict, config: dict) -> Optional[Article]:
         headline_ur=parsed.get("headline_ur", ""),
         llm_body_provider=body_provider,
         llm_headline_provider=headline_provider,
-        llm_body_model=model_for_provider(body_provider, "body", config),
-        llm_headline_model=model_for_provider(headline_provider, "headline", config),
+        llm_body_model=body_model,
+        llm_headline_model=headline_model,
     )
 
 
@@ -279,7 +277,7 @@ def generate_on_the_record(story: dict, config: dict) -> Optional[Article]:
     )
 
     try:
-        body, body_provider = chat_completion(
+        body, body_provider, body_model = chat_completion(
             system=review_prompt,
             user=user_input,
             config=config,
@@ -290,7 +288,7 @@ def generate_on_the_record(story: dict, config: dict) -> Optional[Article]:
         raise
 
     try:
-        meta_raw, headline_provider = chat_completion(
+        meta_raw, headline_provider, headline_model = chat_completion(
             system=headline_prompt
             + "\n\nThis is an On The Record interview review. Headline should signal opinion/review, not neutral wire copy.",
             user=body,
@@ -300,8 +298,6 @@ def generate_on_the_record(story: dict, config: dict) -> Optional[Article]:
     except (LLMError, LLMAuthError):
         log.exception("On The Record headline failed: %s", story["title"])
         raise
-
-    from llm_client import model_for_provider
 
     parsed = _parse_headline_response(meta_raw)
     headline = parsed["headline"] or story["title"]
@@ -365,8 +361,8 @@ def generate_on_the_record(story: dict, config: dict) -> Optional[Article]:
         interview_tone=tone,
         llm_body_provider=body_provider,
         llm_headline_provider=headline_provider,
-        llm_body_model=model_for_provider(body_provider, "body", config),
-        llm_headline_model=model_for_provider(headline_provider, "headline", config),
+        llm_body_model=body_model,
+        llm_headline_model=headline_model,
     )
 
 
@@ -466,6 +462,7 @@ def generate_batch(stories: list[dict]) -> list[Article]:
     delay = config.get("pipeline", {}).get("delay_between_articles_seconds", 25)
 
     articles: list[Article] = []
+    failures: list[str] = []
     for i, story in enumerate(stories):
         if i > 0 and delay:
             log.info("Waiting %ds before next article (rate limit)", delay)
@@ -474,18 +471,25 @@ def generate_batch(stories: list[dict]) -> list[Article]:
         try:
             article = generate_article(story, config)
         except (LLMError, LLMAuthError) as exc:
-            from notifier import notify_error
-
-            notify_error(
-                f"LLM generation failed: {exc}. "
-                "Check GEMINI_API_KEY / GROQ_API_KEY in GitHub Secrets."
-            )
-            break
+            msg = f"{story['title'][:80]}: {exc}"
+            log.warning("Skipping story after LLM failure: %s", msg)
+            failures.append(msg)
+            continue
         if article:
             articles.append(article)
             log.info("  → %s", article.headline)
         else:
             log.warning("  → FAILED, skipping")
+
+    if failures:
+        from notifier import notify_error
+
+        notify_error(
+            "LLM skipped "
+            f"{len(failures)} stor{'y' if len(failures) == 1 else 'ies'} "
+            f"(continued with {len(articles)} generated):\n"
+            + "\n".join(failures[:3])
+        )
 
     if articles and config.get("images", {}).get("enabled", True):
         log.info("Fetching featured images for %d articles", len(articles))
