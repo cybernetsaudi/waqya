@@ -153,14 +153,16 @@ openai:
 # LLM routing — Gemini for body quality, Groq for fast headlines + fallback
 llm:
   body:
-    primary: groq
-    fallback: gemini
+    primary: gemini
+    fallback: groq
   headline:
     primary: groq
     fallback: gemini
   gemini:
-    model: gemini-2.0-flash
-    vertexai: true          # AQ.* keys from Google Cloud express / Vertex
+    model: gemini-2.5-flash
+    headline_model: gemini-2.5-flash
+    # false = Google AI Studio (generativelanguage.googleapis.com). true = Vertex AI.
+    vertexai: false
     temperature: 0.85
     max_output_tokens: 2000
     headline_temperature: 0.9

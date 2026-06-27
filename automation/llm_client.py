@@ -98,7 +98,7 @@ def _gemini_client(api_key: str, config: dict):
     from google import genai
 
     gcfg = _llm_cfg(config).get("gemini", {})
-    use_vertex = bool(gcfg.get("vertexai")) or api_key.startswith("AQ.")
+    use_vertex = bool(gcfg.get("vertexai", False))
     if use_vertex:
         return genai.Client(vertexai=True, api_key=api_key)
     return genai.Client(api_key=api_key)
