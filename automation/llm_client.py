@@ -94,6 +94,15 @@ def _groq_params(task: Task, config: dict) -> dict:
     }
 
 
+def model_for_provider(provider: str, task: Task, config: dict) -> str:
+    """Return configured model id for logging and post meta."""
+    if provider == "gemini":
+        return _gemini_params(task, config)["model"]
+    if provider == "groq":
+        return _groq_params(task, config)["model"]
+    return provider
+
+
 def _gemini_client(api_key: str, config: dict):
     from google import genai
 

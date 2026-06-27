@@ -67,8 +67,12 @@ def notify_pipeline_results(results: list[PublishResult], wp_admin_url: str) -> 
         score = f" · {r.quality_score}/100" if r.quality_score else ""
         link = r.post_url if r.status == "publish" and r.post_url else r.edit_url
         lines.append(f"{i}. {icon}{breaking} <a href=\"{link}\">{r.title}</a>{score}")
+        if r.llm_body:
+            lines.append(f"   <i>Body: {r.llm_body} · Headline: {r.llm_headline or 'n/a'}</i>")
         if r.held_reason:
             lines.append(f"   <i>{r.held_reason}</i>")
+        elif r.quality_notes and r.status == "publish":
+            lines.append(f"   <i>{r.quality_notes[:180]}</i>")
 
     if held:
         lines.append("")

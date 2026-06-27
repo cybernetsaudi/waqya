@@ -60,6 +60,10 @@ class Article:
     regions: list[str] = None
     article_format: str = ""
     interview_tone: str = ""
+    llm_body_provider: str = ""
+    llm_headline_provider: str = ""
+    llm_body_model: str = ""
+    llm_headline_model: str = ""
 
     def __post_init__(self):
         if self.subjects is None:
@@ -128,7 +132,7 @@ def generate_article(story: dict, config: dict) -> Optional[Article]:
 
     # Step 1: Generate the article body (Gemini → Groq fallback)
     try:
-        body, _provider = chat_completion(
+        body, body_provider = chat_completion(
             system=commentary_prompt,
             user=user_input,
             config=config,
@@ -140,7 +144,7 @@ def generate_article(story: dict, config: dict) -> Optional[Article]:
 
     # Step 2: Generate headline + metadata (Groq → Gemini fallback)
     try:
-        meta_raw, _provider = chat_completion(
+        meta_raw, headline_provider = chat_completion(
             system=headline_prompt,
             user=body,
             config=config,
@@ -149,6 +153,8 @@ def generate_article(story: dict, config: dict) -> Optional[Article]:
     except (LLMError, LLMAuthError):
         log.exception("Headline generation failed for: %s", story["title"])
         raise
+
+    from llm_client import model_for_provider
 
     parsed = _parse_headline_response(meta_raw)
     headline = parsed["headline"] or story["title"]
@@ -213,6 +219,10 @@ def generate_article(story: dict, config: dict) -> Optional[Article]:
         regions=region_tags,
         headline_ar=parsed.get("headline_ar", ""),
         headline_ur=parsed.get("headline_ur", ""),
+        llm_body_provider=body_provider,
+        llm_headline_provider=headline_provider,
+        llm_body_model=model_for_provider(body_provider, "body", config),
+        llm_headline_model=model_for_provider(headline_provider, "headline", config),
     )
 
 
@@ -269,7 +279,7 @@ def generate_on_the_record(story: dict, config: dict) -> Optional[Article]:
     )
 
     try:
-        body, _provider = chat_completion(
+        body, body_provider = chat_completion(
             system=review_prompt,
             user=user_input,
             config=config,
@@ -280,7 +290,7 @@ def generate_on_the_record(story: dict, config: dict) -> Optional[Article]:
         raise
 
     try:
-        meta_raw, _provider = chat_completion(
+        meta_raw, headline_provider = chat_completion(
             system=headline_prompt
             + "\n\nThis is an On The Record interview review. Headline should signal opinion/review, not neutral wire copy.",
             user=body,
@@ -290,6 +300,8 @@ def generate_on_the_record(story: dict, config: dict) -> Optional[Article]:
     except (LLMError, LLMAuthError):
         log.exception("On The Record headline failed: %s", story["title"])
         raise
+
+    from llm_client import model_for_provider
 
     parsed = _parse_headline_response(meta_raw)
     headline = parsed["headline"] or story["title"]
@@ -351,6 +363,10 @@ def generate_on_the_record(story: dict, config: dict) -> Optional[Article]:
         headline_ur=parsed.get("headline_ur", ""),
         article_format="on_the_record",
         interview_tone=tone,
+        llm_body_provider=body_provider,
+        llm_headline_provider=headline_provider,
+        llm_body_model=model_for_provider(body_provider, "body", config),
+        llm_headline_model=model_for_provider(headline_provider, "headline", config),
     )
 
 

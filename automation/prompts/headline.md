@@ -24,7 +24,10 @@ OPTIONAL TOPIC TAGS (pick 0-4 from this list when applicable):
 {{TOPIC_TAGS}}
 
 HEADLINE STYLE:
-- Punchy, provocative, truthful (max 80 chars). Tabloid energy, no lies.
+- Original Waqya headline — not the source headline with adjectives added
+- Max **65 characters**. Confident columnist voice; no empty clickbait
+- Do NOT use: shockwaves, sparking outrage, slams, blasts, perfect for fans, game-changer
+- Prefer a sharp angle or question over wire-copy punctuation tricks
 
 SEO RULES (Yoast):
 - FOCUS_KEYWORD: 1–3 words, the main topic (e.g. "technology", "Middle East", "markets"). Must match what the article body targets.

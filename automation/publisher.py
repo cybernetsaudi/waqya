@@ -256,6 +256,9 @@ class PublishResult:
     quality_score: int = 0
     is_breaking: bool = False
     held_reason: str = ""
+    quality_notes: str = ""
+    llm_body: str = ""
+    llm_headline: str = ""
 
 
 def publish_draft(
@@ -265,6 +268,7 @@ def publish_draft(
     quality_score: int = 0,
     is_breaking: bool = False,
     held_reason: str = "",
+    quality_notes: str = "",
 ) -> Optional[PublishResult]:
     base_url, _, _ = _wp_auth()
     config = _load_config()
@@ -359,6 +363,14 @@ def publish_draft(
             "_waqya_source_url": article.source_url,
         },
     }
+    if article.llm_body_provider:
+        post_data["meta"]["_waqya_llm_body_provider"] = article.llm_body_provider
+        post_data["meta"]["_waqya_llm_body_model"] = article.llm_body_model or ""
+    if article.llm_headline_provider:
+        post_data["meta"]["_waqya_llm_headline_provider"] = article.llm_headline_provider
+        post_data["meta"]["_waqya_llm_headline_model"] = article.llm_headline_model or ""
+    if quality_notes:
+        post_data["meta"]["_waqya_quality_notes"] = quality_notes[:500]
     if article.source_story:
         published_gmt = source_date_gmt(article.source_story.get("published"))
         if published_gmt:
@@ -411,6 +423,13 @@ def publish_draft(
             primary_key=article.category,
         )
 
+        llm_body = ""
+        if article.llm_body_provider:
+            llm_body = f"{article.llm_body_provider}/{article.llm_body_model or '?'}"
+        llm_headline = ""
+        if article.llm_headline_provider:
+            llm_headline = f"{article.llm_headline_provider}/{article.llm_headline_model or '?'}"
+
         return PublishResult(
             post_id=post_id,
             edit_url=edit_url,
@@ -420,6 +439,9 @@ def publish_draft(
             quality_score=quality_score,
             is_breaking=is_breaking,
             held_reason=held_reason,
+            quality_notes=quality_notes,
+            llm_body=llm_body,
+            llm_headline=llm_headline,
         )
     except Exception:
         log.exception("Failed to publish draft: %s", article.headline)
@@ -481,9 +503,19 @@ def publish_batch(
             article.is_breaking = q.is_breaking
 
         status = resolve_post_status(q, config)
+        notes_text = "; ".join(q.notes[:6])
         reason = ""
-        if status == "draft" and not q.publish_recommended:
-            reason = f"Quality score {q.score}/100 below threshold"
+        if status == "draft":
+            if not q.publish_recommended:
+                reason = f"Score {q.score}/100 below threshold (need {config.get('pipeline', {}).get('require_min_quality_score', 78)})"
+            else:
+                reason = f"Held at score {q.score}/100"
+            negatives = [n for n in q.notes if any(
+                k in n.lower()
+                for k in ("too short", "tabloid", "resembles", "missing", "boilerplate", "disclaimer")
+            )]
+            if negatives:
+                reason = f"{reason} — {'; '.join(negatives[:3])}"
 
         result = publish_draft(
             article,
@@ -491,6 +523,7 @@ def publish_batch(
             quality_score=q.score,
             is_breaking=q.is_breaking,
             held_reason=reason,
+            quality_notes=notes_text,
         )
         if result:
             results.append(result)

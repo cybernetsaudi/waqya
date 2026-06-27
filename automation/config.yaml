@@ -14,7 +14,7 @@ wordpress:
 
 # How many articles to generate per pipeline run
 pipeline:
-  max_articles_per_run: 10
+  max_articles_per_run: 5
   min_words: 600
   max_words: 1200
   delay_between_articles_seconds: 25
@@ -22,7 +22,7 @@ pipeline:
   auto_publish: true
   # quality_gated = auto-publish when score >= threshold; else draft + Telegram hold
   publish_mode: quality_gated
-  require_min_quality_score: 70
+  require_min_quality_score: 78
   always_draft_below_score: 55
   # Spread stories across desks; block duplicate topic clusters (Hantavirus ×8, etc.)
   diversity:

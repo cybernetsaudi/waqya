@@ -202,26 +202,14 @@ def _apply_first_paragraph(html: str, new_inner: str) -> str:
 
 
 def optimize_post_html(html: str, focus: str, headline: str) -> str:
-    """Return HTML adjusted for Yoast keyphrase, H2, intro, and image alt checks."""
-    if not focus or not html:
+    """Light SEO pass: image alt text only; preserve editorial voice."""
+    if not html:
         return html
 
-    html = clean_seo_artifacts(html, focus)
-    html = _fix_image_alts(html, focus, headline)
+    if focus:
+        html = clean_seo_artifacts(html, focus)
 
-    span = _first_main_paragraph_span(html)
-    if span:
-        _, _, inner = span
-        new_para = _inject_intro_keyphrase(inner, focus)
-        if new_para != inner:
-            html = _apply_first_paragraph(html, new_para)
-
-    h2_count = _count_body_h2(html)
-    need_h2 = max(0, 2 - h2_count)
-    if need_h2:
-        html = _insert_body_h2s(html, focus, need_h2)
-
-    html = _boost_keyphrase_density(html, focus, target_min=3)
+    html = _fix_image_alts(html, focus or headline[:40], headline)
     return html
 
 
