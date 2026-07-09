@@ -194,7 +194,7 @@ def gather_newsapi_country_headlines(config: dict) -> list[Story]:
 
 
 def gather_newsapi_topic_queries(config: dict) -> list[Story]:
-    """Targeted /everything searches (region, space, tech)."""
+    """Targeted /everything searches (region, space, tech + focus-mode desks)."""
     api_key = os.environ.get("NEWSAPI_KEY", "")
     api_cfg = config.get("newsapi", {})
     if not api_key or not api_cfg.get("enabled"):
@@ -202,8 +202,15 @@ def gather_newsapi_topic_queries(config: dict) -> list[Story]:
 
     from datetime import datetime, timezone
 
-    queries = api_cfg.get("topic_queries", [])
+    from focus_mode import focus_active, focus_cfg, focus_topic_queries
+
+    queries = list(api_cfg.get("topic_queries", []))
     per_run = int(api_cfg.get("topic_queries_per_run", 3))
+    if focus_active(config):
+        focus_queries = focus_topic_queries(config)
+        if focus_queries:
+            queries = focus_queries + queries
+            per_run = max(per_run, int(focus_cfg(config).get("topic_queries_per_run", per_run)))
     hour_bucket = datetime.now(timezone.utc).hour // 4
 
     stories: list[Story] = []
@@ -490,6 +497,12 @@ def gather(max_new: int | None = None) -> list[dict]:
             c.get("summary", ""),
             c.get("category"),
         )
+
+    from focus_mode import apply_focus_score_adjustments, focus_active
+
+    if focus_active(config):
+        candidates = apply_focus_score_adjustments(candidates, config)
+        candidates.sort(key=lambda c: float(c.get("trend_score", 0)), reverse=True)
 
     candidates = _apply_crisis_filter(candidates, config)
 

@@ -1,7 +1,7 @@
 {
   "version": 2,
   "default_primary": "current-affairs",
-  "classification_rules": "Pick exactly ONE primary_category key from primary_categories.\nNEVER default to current-affairs when a specific desk fits.\nIf the story is mainly about a specific region, prefer a regional primary\n(e.g. middle-east, south-asia). If global or multi-region, prefer a topic\nprimary (e.g. war-conflict, immigration-migration, politics-government).\nHealth/virus/CDC → health-medicine. Stocks/Nvidia/Dow → markets-finance.\nGaming/retro consoles → entertainment-arts. UK politics → united-kingdom.\nAlways add 1-3 region_tags and 2-5 topic_tags when applicable.\nMap to iptc_code from the primary's iptc_reference field.\n",
+  "classification_rules": "Pick exactly ONE primary_category key from primary_categories.\nNEVER default to current-affairs when a specific desk fits.\nIf the story is mainly about a specific region, prefer a regional primary\n(e.g. middle-east, south-asia). If global or multi-region, prefer a topic\nprimary (e.g. war-conflict, immigration-migration, politics-government).\nHealth/virus/CDC → health-medicine. Stocks/Nvidia/Dow → markets-finance.\nGaming/retro consoles → entertainment-arts. UK politics → united-kingdom.\nFashion, runway, luxury brands, streetwear, Vogue → fashion-style.\nAlways add 1-3 region_tags and 2-5 topic_tags when applicable.\nMap to iptc_code from the primary's iptc_reference field.\n",
   "menu": [
     {
       "id": "news-desk",
@@ -47,11 +47,11 @@
         "climate-environment",
         "energy-resources",
         "society-culture",
+        "fashion-style",
         "labour-work",
         "sport",
         "entertainment-arts",
         "education",
-        "explainers",
         "disasters-emergencies"
       ]
     }
@@ -129,7 +129,21 @@
       "slug": "crime-justice",
       "description": "Courts, law enforcement, trials, organised crime",
       "iptc_reference": "medtop:02000000",
-      "menu_group": "news-desk"
+      "menu_group": "news-desk",
+      "scrape_keywords": [
+        "murder",
+        "stabbing",
+        "killing",
+        "charged",
+        "suspect",
+        "victim",
+        "police",
+        "court",
+        "trial",
+        "shooting",
+        "knife crime",
+        "manslaughter"
+      ]
     },
     "media-disinformation": {
       "label": "Media & Disinformation",
@@ -340,6 +354,27 @@
       "iptc_reference": "medtop:14000000",
       "menu_group": "topics"
     },
+    "fashion-style": {
+      "label": "Fashion & Style",
+      "slug": "fashion-style",
+      "description": "Runway, luxury brands, streetwear, beauty industry, and style culture",
+      "iptc_reference": "medtop:01000000",
+      "menu_group": "topics",
+      "scrape_keywords": [
+        "fashion",
+        "runway",
+        "couture",
+        "streetwear",
+        "luxury brand",
+        "vogue",
+        "haute couture",
+        "fashion week",
+        "designer",
+        "apparel",
+        "beauty industry",
+        "met gala"
+      ]
+    },
     "labour-work": {
       "label": "Labour & Work",
       "slug": "labour-work",
@@ -385,13 +420,6 @@
       "description": "Earthquakes, floods, accidents, humanitarian emergencies",
       "iptc_reference": "medtop:03000000",
       "menu_group": "topics"
-    },
-    "explainers": {
-      "label": "Explainers",
-      "slug": "explainers",
-      "description": "Evergreen background and context on ongoing stories",
-      "iptc_reference": "medtop:01000000",
-      "menu_group": "topics"
     }
   },
   "region_tags": [
@@ -436,7 +464,10 @@
     "Pandemic",
     "Humanitarian",
     "Ceasefire",
-    "Nuclear"
+    "Nuclear",
+    "Fashion",
+    "Luxury",
+    "Streetwear"
   ],
   "feed_category_map": {
     "world": "current-affairs",
@@ -449,7 +480,9 @@
     "us": "united-states",
     "war": "war-conflict",
     "immigration": "immigration-migration",
-    "religion": "religion-faith"
+    "religion": "religion-faith",
+    "crime-justice": "crime-justice",
+    "europe": "europe"
   },
   "rss_feeds": [
     {
@@ -515,10 +548,18 @@
       "worldpolitics",
       "MiddleEastNews",
       "india",
+      "pakistan",
       "technology",
+      "space",
+      "science",
       "immigration",
       "europe",
-      "ukpolitics"
+      "ukpolitics",
+      "unitedkingdom",
+      "uknews",
+      "IndiaSpeaks",
+      "pakistannews",
+      "Futurology"
     ]
   }
 }

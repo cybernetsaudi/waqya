@@ -23,6 +23,7 @@ classification_rules: |
   primary (e.g. war-conflict, immigration-migration, politics-government).
   Health/virus/CDC → health-medicine. Stocks/Nvidia/Dow → markets-finance.
   Gaming/retro consoles → entertainment-arts. UK politics → united-kingdom.
+  Fashion, runway, luxury brands, streetwear, Vogue → fashion-style.
   Always add 1-3 region_tags and 2-5 topic_tags when applicable.
   Map to iptc_code from the primary's iptc_reference field.
 
@@ -67,6 +68,7 @@ menu:
       - climate-environment
       - energy-resources
       - society-culture
+      - fashion-style
       - labour-work
       - sport
       - entertainment-arts
@@ -294,6 +296,26 @@ primary_categories:
     iptc_reference: medtop:14000000
     menu_group: topics
 
+  fashion-style:
+    label: Fashion & Style
+    slug: fashion-style
+    description: Runway, luxury brands, streetwear, beauty industry, and style culture
+    iptc_reference: medtop:01000000
+    menu_group: topics
+    scrape_keywords:
+      - fashion
+      - runway
+      - couture
+      - streetwear
+      - luxury brand
+      - vogue
+      - haute couture
+      - fashion week
+      - designer
+      - apparel
+      - beauty industry
+      - met gala
+
   labour-work:
     label: Labour & Work
     slug: labour-work
@@ -375,6 +397,9 @@ topic_tags:
   - Humanitarian
   - Ceasefire
   - Nuclear
+  - Fashion
+  - Luxury
+  - Streetwear
 
 # ── RSS / scrape defaults (feed slug → primary category key) ────────────────
 feed_category_map:

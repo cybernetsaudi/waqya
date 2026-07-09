@@ -421,6 +421,35 @@ def select_diverse_stories(
         if otr_picked:
             log.info("Reserved %d On The Record slot(s)", otr_picked)
 
+    from focus_mode import focus_active, focus_cfg, focus_priority_desks
+
+    if focus_active(config):
+        focus_desks = focus_priority_desks(config)
+        focus_slots = min(
+            int(focus_cfg(config).get("reserve_slots_per_run", 3)),
+            max_new - len(selected),
+        )
+        focus_picked = 0
+        for _adj, story in scored:
+            if focus_picked >= focus_slots or len(selected) >= max_new:
+                break
+            if story.get("story_format") == "on_the_record":
+                continue
+            primary = story.get("suggested_primary") or story.get("_suggested_primary") or suggest_primary_from_story(
+                story.get("title", ""),
+                story.get("summary", ""),
+                story.get("category"),
+            )
+            if primary not in focus_desks:
+                continue
+            if not can_add(story, primary):
+                continue
+            selected.append(story)
+            record_pick(story, primary)
+            focus_picked += 1
+        if focus_picked:
+            log.info("Focus mode reserved %d slot(s) for priority desks", focus_picked)
+
     primaries_needed = min(div.min_distinct_primaries_per_run, max_new)
     by_primary: dict[str, list[tuple[float, dict]]] = {}
     for adj, story in scored:

@@ -41,6 +41,48 @@ pipeline:
     saturation_penalty: 12.0
     primary_daily_cap: 6
 
+# 30-day editorial focus — depth on priority desks (disable or expire via end_date)
+focus_mode:
+  enabled: true
+  start_date: "2026-07-09"
+  end_date: "2026-08-08"
+  priority_desks:
+    - middle-east
+    - south-asia
+    - united-kingdom
+    - united-states
+    - technology-ai
+    - fashion-style
+  deprioritized_desks:
+    - sport
+    - entertainment-arts
+    - education
+    - disasters-emergencies
+    - science
+  priority_boost: 6.0
+  deprioritize_penalty: 8.0
+  reserve_slots_per_run: 3
+  topic_queries_per_run: 4
+  topic_queries:
+    - query: "(Gaza OR Israel OR Iran OR Hezbollah OR Lebanon OR Syria) AND (war OR ceasefire OR diplomacy OR strike)"
+      category: middle-east
+      page_size: 8
+    - query: "(India OR Pakistan OR Bangladesh OR Kashmir) AND (politics OR election OR conflict OR economy)"
+      category: south-asia
+      page_size: 8
+    - query: "(Starmer OR Labour OR Westminster OR NHS OR Brexit) AND (UK OR Britain OR England)"
+      category: united-kingdom
+      page_size: 8
+    - query: "(Trump OR Congress OR White House OR Supreme Court) AND (US OR America)"
+      category: united-states
+      page_size: 8
+    - query: "(artificial intelligence OR OpenAI OR Nvidia OR semiconductor OR cybersecurity)"
+      category: technology-ai
+      page_size: 8
+    - query: "(fashion week OR runway OR couture OR streetwear OR Vogue OR \"luxury brand\" OR Met Gala)"
+      category: fashion-style
+      page_size: 8
+
 # Taxonomy source of truth: automation/waqya_categories.yaml
 taxonomy:
   source: waqya_categories.yaml
@@ -234,14 +276,14 @@ crisis_mode:
 editorial_calendar:
   enabled: true
   weekdays:
-    monday: "Week opener — politics, markets, and what moved over the weekend"
-    tuesday: "Deep dive — technology, science, or business explainers"
-    wednesday: "Regional focus — Middle East or South Asia when stories warrant"
-    thursday: "Conflict & security — war, diplomacy, migration"
-    friday: "Culture & lighter reads — entertainment, sport, human interest"
-    saturday: "Weekend long read — one strong narrative piece"
-    sunday: "Week ahead — preview stakes for Monday markets and diplomacy"
-    default: "Balanced mix across desks"
+    monday: "Week opener — UK/US politics and what moved over the weekend"
+    tuesday: "Deep dive — technology & AI explainers"
+    wednesday: "Regional focus — Middle East or South Asia"
+    thursday: "Diplomacy & security on focus desks; fashion when a strong story lands"
+    friday: "Fashion & style niche + lighter culture reads that still have an angle"
+    saturday: "Weekend long read — one strong narrative on a focus desk"
+    sunday: "Week ahead — preview stakes for Monday politics, tech, and markets"
+    default: "Prefer focus desks: Middle East, South Asia, UK, US, Tech, Fashion"
 
 budget:
   enabled: true
