@@ -106,6 +106,7 @@ def run() -> int:
             f"Bluesky {social_counts.get('bluesky', 0)} · "
             f"Mastodon {social_counts.get('mastodon', 0)} · "
             f"TG {social_counts.get('telegram', 0)} · "
+            f"promos {social_counts.get('promos', 0)} · "
             f"errors {social_counts.get('errors', 0)}"
         )
     except Exception:

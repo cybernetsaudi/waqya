@@ -1434,6 +1434,108 @@ body.nav-open .site-header__menu-toggle .icon-close {
   color: #e8e6e1;
 }
 
+.follow-promo {
+  margin-top: var(--space-6);
+  padding: var(--space-5) 0 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.follow-promo--footer {
+  grid-column: 1 / -1;
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.follow-promo__eyebrow {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.follow-promo--footer .follow-promo__eyebrow {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.follow-promo__text {
+  margin: 0 0 var(--space-4);
+  max-width: 28rem;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: var(--color-ink);
+}
+
+.follow-promo--footer .follow-promo__text {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.follow-promo__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.follow-promo__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-transform: uppercase;
+  border: 1px solid var(--color-ink);
+  color: var(--color-ink);
+  background: transparent;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.follow-promo__btn:hover {
+  color: #fff;
+  background: var(--color-ink);
+}
+
+.follow-promo--footer .follow-promo__btn {
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.follow-promo--footer .follow-promo__btn:hover {
+  background: #fff;
+  color: #3a0c14;
+  border-color: #fff;
+}
+
+.follow-promo__btn--telegram {
+  border-color: #229ed9;
+  color: #229ed9;
+}
+
+.follow-promo__btn--telegram:hover {
+  background: #229ed9;
+  border-color: #229ed9;
+  color: #fff;
+}
+
+.follow-promo--footer .follow-promo__btn--telegram {
+  border-color: #6ec1f0;
+  color: #6ec1f0;
+}
+
+.follow-promo--footer .follow-promo__btn--telegram:hover {
+  background: #229ed9;
+  border-color: #229ed9;
+  color: #fff;
+}
+
 /* ==========================================================================
    Thumbnail placeholders (no featured image)
    ========================================================================== */

@@ -104,6 +104,8 @@ get_header();
                             </ul>
                         </footer>
                     <?php endif; ?>
+
+                    <?php waqya_render_follow_promo('article'); ?>
                 </article>
                 <?php
                 $current_id = get_the_ID();

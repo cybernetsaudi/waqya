@@ -174,6 +174,17 @@ final class Waqya_Subscribers_Digest
             $lines[] = '';
         }
 
+        $tg = (string) apply_filters(
+            'waqya_telegram_channel_url',
+            get_option('waqya_telegram_channel_url', 'https://t.me/waqya_news')
+        );
+        if ($tg === '') {
+            $tg = 'https://t.me/waqya_news';
+        }
+        $lines[] = __('Get stories as they publish on Telegram:', 'waqya-subscribers');
+        $lines[] = $tg;
+        $lines[] = '';
+
         $unsub_url = Waqya_Subscribers_Actions::unsubscribe_url($row);
         $lines[] = __('Unsubscribe from this digest:', 'waqya-subscribers');
         $lines[] = $unsub_url;

@@ -312,4 +312,13 @@ social:
     enabled: true
     max_length: 1000
     chat_id: "@waqya_news"
+  # Auto-promote join links across site / digest / social (cannot force-add Telegram users)
+  promote:
+    telegram_url: "https://t.me/waqya_news"
+    bluesky_url: "https://bsky.app/profile/waqya.bsky.social"
+    # Append channel invite on every Nth Bluesky post (1 = every post)
+    bluesky_promo_every_n: 2
+    # Standalone “join the channel” post on Telegram every N articles in a run
+    telegram_join_every_n: 3
+    digest_footer: true
   # X/Twitter intentionally omitted — write API is paid; use Bluesky/Mastodon/Telegram instead.

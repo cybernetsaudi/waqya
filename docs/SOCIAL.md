@@ -8,7 +8,7 @@ Waqya posts **live** pipeline articles with **no human approval** and **no paid 
 |---------|------|--------|-------|
 | **Bluesky** | Free | **Live** (`@waqya.bsky.social`) | Done |
 | **Mastodon** | Free | Ready in code | Create account + access token (~5 min) |
-| **Telegram channel** | Free | Ready in code | Create public channel + add bot as admin |
+| **Telegram channel** | Free | **Live** (`t.me/waqya_news`) | Done + auto-promote join CTAs |
 | Weekly email digest | Free | Active on WordPress | Visitors subscribe themselves |
 | **X / Twitter** | Paid write API | **Not used** | Skip |
 
@@ -18,7 +18,7 @@ Drafts held by the quality gate are never posted.
 
 ## 1. Bluesky — already configured
 
-Posts after every successful pipeline publish.
+Posts after every successful pipeline publish. Every other post (configurable) appends the Telegram invite.
 
 Profile: [bsky.app/profile/waqya.bsky.social](https://bsky.app/profile/waqya.bsky.social)
 
@@ -72,6 +72,35 @@ social:
   telegram_channel:
     enabled: true
 ```
+
+Telegram: [t.me/waqya_news](https://t.me/waqya_news) · channel id `@waqya_news`
+
+Posts include a **Read on Waqya** button and a **Join channel** button. Every Nth article in a run also sends a short join CTA (`social.promote.telegram_join_every_n`).
+
+---
+
+## 4. Auto-promote (join links everywhere)
+
+Telegram **cannot** force-add users. Growth is from repeating the invite:
+
+| Surface | What happens |
+|---------|----------------|
+| Article end + site footer | Theme CTA (Telegram + Bluesky) — theme ≥ 1.9.8 |
+| Weekly email digest | Footer line with `t.me/waqya_news` |
+| Bluesky posts | Invite line every N posts (`bluesky_promo_every_n`) |
+| Telegram channel posts | Inline buttons + occasional join promo |
+
+```yaml
+social:
+  promote:
+    telegram_url: "https://t.me/waqya_news"
+    bluesky_url: "https://bsky.app/profile/waqya.bsky.social"
+    bluesky_promo_every_n: 2
+    telegram_join_every_n: 3
+    digest_footer: true
+```
+
+WordPress options (optional overrides): `waqya_telegram_channel_url`, `waqya_bluesky_url`.
 
 ---
 
