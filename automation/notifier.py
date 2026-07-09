@@ -46,7 +46,11 @@ def send_message(text: str) -> bool:
         return False
 
 
-def notify_pipeline_results(results: list[PublishResult], wp_admin_url: str) -> bool:
+def notify_pipeline_results(
+    results: list[PublishResult],
+    wp_admin_url: str,
+    social_summary: str = "",
+) -> bool:
     """Notify about a pipeline run: live posts vs drafts held for review."""
     if not results:
         log.info("No posts to notify about")
@@ -73,6 +77,10 @@ def notify_pipeline_results(results: list[PublishResult], wp_admin_url: str) -> 
             lines.append(f"   <i>{r.held_reason}</i>")
         elif r.quality_notes and r.status == "publish":
             lines.append(f"   <i>{r.quality_notes[:180]}</i>")
+
+    if social_summary:
+        lines.append("")
+        lines.append(f"<i>Social: {social_summary}</i>")
 
     if held:
         lines.append("")

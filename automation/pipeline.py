@@ -94,10 +94,28 @@ def run() -> int:
         notify_publish_failed(len(articles))
 
     log.info("=" * 50)
-    log.info("STEP 4 / 4 — Telegram + budget")
+    log.info("STEP 4 / 5 — Social distribution")
+    log.info("=" * 50)
+    social_summary = ""
+    try:
+        from social_poster import distribute_publish_results
+
+        social_counts = distribute_publish_results(results, config)
+        log.info("Social: %s", social_counts)
+        social_summary = (
+            f"Bluesky {social_counts.get('bluesky', 0)} · "
+            f"X {social_counts.get('x', 0)} · "
+            f"errors {social_counts.get('errors', 0)}"
+        )
+    except Exception:
+        log.exception("Social distribution failed (continuing)")
+        social_summary = "failed (see Actions logs)"
+
+    log.info("=" * 50)
+    log.info("STEP 5 / 5 — Telegram + budget")
     log.info("=" * 50)
     wp_url = os.environ.get("WP_URL", "https://waqya.com").rstrip("/")
-    notify_pipeline_results(results, wp_url)
+    notify_pipeline_results(results, wp_url, social_summary=social_summary)
 
     published = sum(1 for r in results if r.status == "publish")
     held = len(results) - published

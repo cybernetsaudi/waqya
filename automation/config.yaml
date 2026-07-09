@@ -295,3 +295,15 @@ budget:
     openai_per_1k_output_tokens: 0.0006
     openai_per_article_tokens: 2500
     pipeline_base_per_run: 0.02
+
+# Auto-post live articles after pipeline publish (no human step)
+social:
+  enabled: true
+  max_posts_per_run: 5
+  bluesky:
+    enabled: true
+    max_length: 300
+  x:
+    # Enable after adding X_API_KEY / X_API_SECRET / X_ACCESS_TOKEN / X_ACCESS_TOKEN_SECRET
+    enabled: false
+    max_length: 280
