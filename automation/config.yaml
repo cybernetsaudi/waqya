@@ -308,8 +308,8 @@ social:
     enabled: false
     max_length: 500
   telegram_channel:
-    # Free — create a public channel, add your bot as admin, set TELEGRAM_CHANNEL_ID
-    enabled: false
+    # Free — public channel https://t.me/waqya_news ; bot must be channel admin
+    enabled: true
     max_length: 1000
-    # chat_id: "@waqya_news"   # or numeric -100…; can also use env TELEGRAM_CHANNEL_ID
+    chat_id: "@waqya_news"
   # X/Twitter intentionally omitted — write API is paid; use Bluesky/Mastodon/Telegram instead.
