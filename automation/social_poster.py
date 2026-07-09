@@ -1,8 +1,12 @@
 """
-Auto-post published Waqya articles to social networks.
+Auto-post published Waqya articles to free social networks.
 
-Primary: Bluesky (AT Protocol) — free, no paid API, fully automatable.
-Optional: X/Twitter — when X_API_* secrets are set (paid developer access).
+Free stack (no paid APIs):
+  - Bluesky (AT Protocol) — primary
+  - Mastodon — any instance (mastodon.social, etc.)
+  - Telegram channel — public channel via existing bot
+
+X/Twitter is unsupported in the default config (paid write API).
 
 Posts only live (status=publish) articles. Skips drafts. Idempotent via seen.db.
 """
@@ -14,6 +18,8 @@ import os
 import re
 import sqlite3
 from pathlib import Path
+
+import requests
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +66,6 @@ def _compose_text(title: str, url: str, excerpt: str = "", *, max_len: int = 280
     excerpt = re.sub(r"\s+", " ", (excerpt or "").strip())
     url = (url or "").strip()
 
-    # Reserve space for URL + newlines
     budget = max_len - len(url) - 2
     if budget < 40:
         return f"{title[: max(20, max_len - len(url) - 3)]}…\n{url}" if url else title[:max_len]
@@ -72,7 +77,6 @@ def _compose_text(title: str, url: str, excerpt: str = "", *, max_len: int = 280
 
     remaining = budget - len(head)
     if excerpt and remaining > 40:
-        # Optional short dek
         dek = excerpt[: remaining - 3].rstrip()
         if len(excerpt) > remaining - 3:
             dek = dek.rsplit(" ", 1)[0] + "…"
@@ -82,27 +86,41 @@ def _compose_text(title: str, url: str, excerpt: str = "", *, max_len: int = 280
     return f"{head}\n{url}"
 
 
+def _social_on(config: dict) -> bool:
+    return bool(config.get("social", {}).get("enabled", True))
+
+
 def _bluesky_enabled(config: dict) -> bool:
-    social = config.get("social", {})
-    if not social.get("enabled", True):
+    if not _social_on(config):
         return False
-    if not social.get("bluesky", {}).get("enabled", True):
+    if not config.get("social", {}).get("bluesky", {}).get("enabled", True):
         return False
     return bool(os.environ.get("BLUESKY_HANDLE") and os.environ.get("BLUESKY_APP_PASSWORD"))
 
 
-def _x_enabled(config: dict) -> bool:
-    social = config.get("social", {})
-    if not social.get("enabled", True):
+def _mastodon_enabled(config: dict) -> bool:
+    if not _social_on(config):
         return False
-    if not social.get("x", {}).get("enabled", False):
+    if not config.get("social", {}).get("mastodon", {}).get("enabled", False):
         return False
-    keys = ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_TOKEN_SECRET")
-    return all(os.environ.get(k) for k in keys)
+    return bool(os.environ.get("MASTODON_BASE_URL") and os.environ.get("MASTODON_ACCESS_TOKEN"))
+
+
+def _telegram_channel_enabled(config: dict) -> bool:
+    if not _social_on(config):
+        return False
+    if not config.get("social", {}).get("telegram_channel", {}).get("enabled", False):
+        return False
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat = (
+        os.environ.get("TELEGRAM_CHANNEL_ID")
+        or config.get("social", {}).get("telegram_channel", {}).get("chat_id")
+        or ""
+    ).strip()
+    return bool(token and chat)
 
 
 def post_to_bluesky(text: str, config: dict) -> str:
-    """Create a Bluesky post. Returns at:// URI."""
     from atproto import Client
 
     handle = os.environ["BLUESKY_HANDLE"].lstrip("@")
@@ -110,7 +128,6 @@ def post_to_bluesky(text: str, config: dict) -> str:
     client = Client()
     client.login(handle, password)
 
-    # Prefer facets/link card via text; simple post is enough for v1
     max_len = int(config.get("social", {}).get("bluesky", {}).get("max_length", 300))
     body = text if len(text) <= max_len else text[: max_len - 1] + "…"
     resp = client.send_post(body)
@@ -119,28 +136,85 @@ def post_to_bluesky(text: str, config: dict) -> str:
     return uri
 
 
-def post_to_x(text: str, config: dict) -> str:
-    """Create an X (Twitter) post via API v2. Returns tweet id."""
-    import tweepy
-
-    client = tweepy.Client(
-        consumer_key=os.environ["X_API_KEY"],
-        consumer_secret=os.environ["X_API_SECRET"],
-        access_token=os.environ["X_ACCESS_TOKEN"],
-        access_token_secret=os.environ["X_ACCESS_TOKEN_SECRET"],
-    )
-    max_len = int(config.get("social", {}).get("x", {}).get("max_length", 280))
+def post_to_mastodon(text: str, config: dict) -> str:
+    """Post a status to Mastodon (free). Returns status URL or id."""
+    base = os.environ["MASTODON_BASE_URL"].rstrip("/")
+    token = os.environ["MASTODON_ACCESS_TOKEN"]
+    max_len = int(config.get("social", {}).get("mastodon", {}).get("max_length", 500))
     body = text if len(text) <= max_len else text[: max_len - 1] + "…"
-    resp = client.create_tweet(text=body)
-    tweet_id = str(resp.data["id"])
-    log.info("X posted: %s", tweet_id)
-    return tweet_id
+
+    resp = requests.post(
+        f"{base}/api/v1/statuses",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"status": body, "visibility": "public"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    uri = data.get("url") or str(data.get("id", ""))
+    log.info("Mastodon posted: %s", uri)
+    return uri
+
+
+def post_to_telegram_channel(text: str, config: dict) -> str:
+    """Post to a public Telegram channel (free). Bot must be channel admin."""
+    token = os.environ["TELEGRAM_BOT_TOKEN"]
+    chat = (
+        os.environ.get("TELEGRAM_CHANNEL_ID")
+        or config.get("social", {}).get("telegram_channel", {}).get("chat_id")
+        or ""
+    ).strip()
+    max_len = int(config.get("social", {}).get("telegram_channel", {}).get("max_length", 1000))
+    body = text if len(text) <= max_len else text[: max_len - 1] + "…"
+
+    resp = requests.post(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        json={
+            "chat_id": chat,
+            "text": body,
+            "disable_web_page_preview": False,
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if not data.get("ok"):
+        raise RuntimeError(f"Telegram channel post failed: {data}")
+    msg_id = str(data.get("result", {}).get("message_id", ""))
+    log.info("Telegram channel posted: %s", msg_id)
+    return msg_id
+
+
+def _try_network(
+    *,
+    post_id: int,
+    network: str,
+    enabled: bool,
+    post_fn,
+    text: str,
+    config: dict,
+    counts: dict,
+) -> bool:
+    if not enabled:
+        return False
+    if already_posted(post_id, network):
+        log.info("%s skip (already posted) #%d", network, post_id)
+        return False
+    try:
+        remote = post_fn(text, config)
+        mark_posted(post_id, network, remote)
+        counts[network] = counts.get(network, 0) + 1
+        return True
+    except Exception:
+        log.exception("%s post failed for #%d", network, post_id)
+        counts["errors"] = counts.get("errors", 0) + 1
+        return False
 
 
 def distribute_publish_results(results: list, config: dict | None = None) -> dict:
     """
-    Post each live PublishResult to configured networks.
-    Returns counts: {bluesky: n, x: n, skipped: n, errors: n}
+    Post each live PublishResult to configured free networks.
+    Returns counts per network + skipped/errors.
     """
     if config is None:
         import yaml
@@ -151,14 +225,13 @@ def distribute_publish_results(results: list, config: dict | None = None) -> dic
     social = config.get("social", {})
     if not social.get("enabled", True):
         log.info("Social distribution disabled in config")
-        return {"bluesky": 0, "x": 0, "skipped": 0, "errors": 0}
+        return {"bluesky": 0, "mastodon": 0, "telegram": 0, "skipped": 0, "errors": 0}
 
     max_per_run = int(social.get("max_posts_per_run", 5))
-    counts = {"bluesky": 0, "x": 0, "skipped": 0, "errors": 0}
+    counts = {"bluesky": 0, "mastodon": 0, "telegram": 0, "skipped": 0, "errors": 0}
     posted_this_run = 0
 
     live = [r for r in results if getattr(r, "status", "") == "publish" and getattr(r, "post_url", "")]
-    # Prefer higher quality scores first
     live.sort(key=lambda r: getattr(r, "quality_score", 0) or 0, reverse=True)
 
     for result in live:
@@ -173,34 +246,38 @@ def distribute_publish_results(results: list, config: dict | None = None) -> dic
             counts["skipped"] += 1
             continue
 
-        text = _compose_text(title, url)
+        # Longer compose for Mastodon/Telegram; Bluesky truncates inside its poster
+        text_short = _compose_text(title, url, max_len=300)
+        text_long = _compose_text(title, url, max_len=480)
+
         did_any = False
-
-        if _bluesky_enabled(config):
-            if already_posted(post_id, "bluesky"):
-                log.info("Bluesky skip (already posted) #%d", post_id)
-            else:
-                try:
-                    uri = post_to_bluesky(text, config)
-                    mark_posted(post_id, "bluesky", uri)
-                    counts["bluesky"] += 1
-                    did_any = True
-                except Exception:
-                    log.exception("Bluesky post failed for #%d", post_id)
-                    counts["errors"] += 1
-
-        if _x_enabled(config):
-            if already_posted(post_id, "x"):
-                log.info("X skip (already posted) #%d", post_id)
-            else:
-                try:
-                    tid = post_to_x(text, config)
-                    mark_posted(post_id, "x", tid)
-                    counts["x"] += 1
-                    did_any = True
-                except Exception:
-                    log.exception("X post failed for #%d", post_id)
-                    counts["errors"] += 1
+        did_any |= _try_network(
+            post_id=post_id,
+            network="bluesky",
+            enabled=_bluesky_enabled(config),
+            post_fn=lambda t, c: post_to_bluesky(text_short, c),
+            text=text_short,
+            config=config,
+            counts=counts,
+        )
+        did_any |= _try_network(
+            post_id=post_id,
+            network="mastodon",
+            enabled=_mastodon_enabled(config),
+            post_fn=lambda t, c: post_to_mastodon(text_long, c),
+            text=text_long,
+            config=config,
+            counts=counts,
+        )
+        did_any |= _try_network(
+            post_id=post_id,
+            network="telegram",
+            enabled=_telegram_channel_enabled(config),
+            post_fn=lambda t, c: post_to_telegram_channel(text_long, c),
+            text=text_long,
+            config=config,
+            counts=counts,
+        )
 
         if did_any:
             posted_this_run += 1
@@ -208,9 +285,10 @@ def distribute_publish_results(results: list, config: dict | None = None) -> dic
             counts["skipped"] += 1
 
     log.info(
-        "Social distribution: bluesky=%d x=%d skipped=%d errors=%d",
+        "Social distribution: bluesky=%d mastodon=%d telegram=%d skipped=%d errors=%d",
         counts["bluesky"],
-        counts["x"],
+        counts["mastodon"],
+        counts["telegram"],
         counts["skipped"],
         counts["errors"],
     )

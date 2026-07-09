@@ -104,7 +104,8 @@ def run() -> int:
         log.info("Social: %s", social_counts)
         social_summary = (
             f"Bluesky {social_counts.get('bluesky', 0)} · "
-            f"X {social_counts.get('x', 0)} · "
+            f"Mastodon {social_counts.get('mastodon', 0)} · "
+            f"TG {social_counts.get('telegram', 0)} · "
             f"errors {social_counts.get('errors', 0)}"
         )
     except Exception:

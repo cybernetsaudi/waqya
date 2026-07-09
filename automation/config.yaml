@@ -296,14 +296,20 @@ budget:
     openai_per_article_tokens: 2500
     pipeline_base_per_run: 0.02
 
-# Auto-post live articles after pipeline publish (no human step)
+# Auto-post live articles after pipeline publish (FREE channels only — no paid APIs)
 social:
   enabled: true
   max_posts_per_run: 5
   bluesky:
     enabled: true
     max_length: 300
-  x:
-    # Enable after adding X_API_KEY / X_API_SECRET / X_ACCESS_TOKEN / X_ACCESS_TOKEN_SECRET
+  mastodon:
+    # Free — set MASTODON_BASE_URL + MASTODON_ACCESS_TOKEN, then enabled: true
     enabled: false
-    max_length: 280
+    max_length: 500
+  telegram_channel:
+    # Free — create a public channel, add your bot as admin, set TELEGRAM_CHANNEL_ID
+    enabled: false
+    max_length: 1000
+    # chat_id: "@waqya_news"   # or numeric -100…; can also use env TELEGRAM_CHANNEL_ID
+  # X/Twitter intentionally omitted — write API is paid; use Bluesky/Mastodon/Telegram instead.

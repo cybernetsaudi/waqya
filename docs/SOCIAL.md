@@ -1,114 +1,92 @@
-# Automated social distribution
+# Automated social distribution (free only)
 
-Waqya posts **live** pipeline articles to social networks with **no human approval step**.
+Waqya posts **live** pipeline articles with **no human approval** and **no paid APIs**.
 
-## What runs automatically
+## Free stack (recommended)
 
-| Channel | When | Human needed? |
-|---------|------|----------------|
-| **Bluesky** | After each pipeline publish (every ~4h) | Only once: create account + app password |
-| **X (Twitter)** | Same, if enabled + API keys set | Once: developer app + keys (paid API) |
-| **Weekly email digest** | Mondays 09:00 site time | Visitors subscribe themselves |
+| Channel | Cost | Status | Setup |
+|---------|------|--------|-------|
+| **Bluesky** | Free | **Live** (`@waqya.bsky.social`) | Done |
+| **Mastodon** | Free | Ready in code | Create account + access token (~5 min) |
+| **Telegram channel** | Free | Ready in code | Create public channel + add bot as admin |
+| Weekly email digest | Free | Active on WordPress | Visitors subscribe themselves |
+| **X / Twitter** | Paid write API | **Not used** | Skip |
 
-Drafts held by the quality gate are **never** posted.
+Drafts held by the quality gate are never posted.
 
 ---
 
-## 1. Bluesky (recommended — do this first)
+## 1. Bluesky — already configured
 
-1. Create [@waqya.bsky.social](https://bsky.app) (or your handle).
-2. **Settings → App Passwords → Add** → name it `waqya-pipeline`.
-3. Copy the password (looks like `xxxx-xxxx-xxxx-xxxx`).
-4. Add GitHub Secrets (repo → Settings → Secrets → Actions):
+Posts after every successful pipeline publish.
+
+Profile: [bsky.app/profile/waqya.bsky.social](https://bsky.app/profile/waqya.bsky.social)
+
+---
+
+## 2. Mastodon (optional, free)
+
+1. Create an account on any instance, e.g. [mastodon.social](https://mastodon.social) or a news-friendly server.
+2. **Preferences → Development → New application**
+   - Name: `waqya-pipeline`
+   - Scopes: `write:statuses` (and `read` if asked)
+3. Copy the **access token**.
+4. GitHub Secrets:
 
 ```
-BLUESKY_HANDLE=waqya.bsky.social
-BLUESKY_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
+MASTODON_BASE_URL=https://mastodon.social
+MASTODON_ACCESS_TOKEN=your-token
 ```
 
-5. Optionally add the same lines to local `.env` for testing.
-
-Config (`automation/config.yaml`):
+5. In `automation/config.yaml`:
 
 ```yaml
 social:
-  enabled: true
-  bluesky:
+  mastodon:
     enabled: true
 ```
 
-No further clicks. Next pipeline run posts up to `max_posts_per_run` live articles.
-
 ---
 
-## 2. X / Twitter (optional)
+## 3. Telegram public channel (optional, free)
 
-X’s API is **paid** for write access. If you have access:
+You already have a Telegram bot for private run alerts. For **public reach**:
 
-1. [developer.x.com](https://developer.x.com) → create app with **Read and Write**.
-2. Generate API Key, API Secret, Access Token, Access Token Secret.
-3. GitHub Secrets:
+1. In Telegram: create a **channel** (e.g. “Waqya”).
+2. Add your bot as **administrator** (post messages).
+3. Get the channel id:
+   - Public username: `@waqya_news`, or
+   - Forward a channel post to `@userinfobot` for the numeric `-100…` id
+4. GitHub Secret:
 
 ```
-X_API_KEY=...
-X_API_SECRET=...
-X_ACCESS_TOKEN=...
-X_ACCESS_TOKEN_SECRET=...
+TELEGRAM_CHANNEL_ID=@waqya_news
 ```
 
-4. In `automation/config.yaml`:
+(Keep existing `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` for private pipeline alerts.)
+
+5. In `automation/config.yaml`:
 
 ```yaml
 social:
-  x:
+  telegram_channel:
     enabled: true
 ```
 
-Until keys exist, X stays off and the pipeline skips it quietly.
-
 ---
 
-## 3. Weekly digest (already on WordPress)
+## Why not X?
 
-Plugin **Waqya Subscribers** is active on production.
-
-- Cron: `waqya_send_weekly_digest` (Mondays)
-- SMTP: `hello@waqya.com` via Hostinger
-- Visitors subscribe via site modal / + Follow
-
-To finish mail deliverability if digests aren’t arriving, put the mailbox password in `.env` and run:
-
-```bash
-# .env
-WP_SMTP_PASSWORD=your-mailbox-password
-
-python automation/setup_wordpress_mail.py
-python automation/test_wordpress_mail.py --send hello@waqya.com
-```
+X’s posting API requires a **paid** developer plan. We deliberately stay on free networks so distribution never depends on a bill.
 
 ---
 
 ## Idempotency
 
-Posted article IDs are stored in `automation/seen.db` (`social_posts` table). Re-runs won’t double-post the same article to the same network.
+Posted IDs live in `automation/seen.db` (`social_posts`). Re-runs won’t double-post.
 
 ---
 
-## Test locally
+## Weekly digest (email)
 
-```bash
-cd automation
-# With BLUESKY_* in .env:
-python -c "
-from social_poster import distribute_publish_results
-from publisher import PublishResult
-r = PublishResult(post_id=999999, edit_url='', title='Waqya social test', post_url='https://waqya.com/', status='publish', quality_score=90)
-print(distribute_publish_results([r]))
-"
-```
-
-Delete the test row from `seen.db` if you need to retry:
-
-```sql
-DELETE FROM social_posts WHERE post_id = 999999;
-```
+Plugin **Waqya Subscribers** — Mondays 09:00. Free. See `docs/SUBSCRIBERS.md`.

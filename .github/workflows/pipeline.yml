@@ -17,13 +17,12 @@ env:
   TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
   PEXELS_API_KEY:      ${{ secrets.PEXELS_API_KEY }}
   INDEXNOW_KEY:        ${{ secrets.INDEXNOW_KEY }}
-  # Social auto-post (optional — skip quietly if unset)
+  # Social auto-post — FREE channels only (Bluesky / Mastodon / Telegram channel)
   BLUESKY_HANDLE:      ${{ secrets.BLUESKY_HANDLE }}
   BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
-  X_API_KEY:           ${{ secrets.X_API_KEY }}
-  X_API_SECRET:        ${{ secrets.X_API_SECRET }}
-  X_ACCESS_TOKEN:      ${{ secrets.X_ACCESS_TOKEN }}
-  X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+  MASTODON_BASE_URL:   ${{ secrets.MASTODON_BASE_URL }}
+  MASTODON_ACCESS_TOKEN: ${{ secrets.MASTODON_ACCESS_TOKEN }}
+  TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
 
 jobs:
   run-pipeline:
