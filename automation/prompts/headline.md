@@ -40,7 +40,7 @@ SEO_TITLE: ...
 FOCUS_KEYWORD: ...
 META: SEO description 140-155 chars
 EXCERPT: social hook max 200 chars
-IMAGE_QUERY: 2-4 visual keywords for stock photo
+IMAGE_QUERY: 2–5 concrete visual nouns for a stock/news photo (place, object, setting — e.g. "Yemen Red Sea tanker", "London Downing Street rain", "hospital ICU monitors"). Never abstract words like "challenge", "impossible", "fears", "impact".
 
 PRIMARY: <one key from allowed primary list>
 IPTC_CODE: <medtop code matching that primary from catalog>

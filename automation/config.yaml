@@ -44,15 +44,15 @@ pipeline:
 # 30-day editorial focus — depth on priority desks (disable or expire via end_date)
 focus_mode:
   enabled: true
-  start_date: "2026-07-09"
-  end_date: "2026-08-08"
+  start_date: "2026-09-22"
+  end_date: "2026-10-22"
   priority_desks:
     - middle-east
     - south-asia
     - united-kingdom
     - united-states
     - technology-ai
-    - fashion-style
+    - business-economy
   deprioritized_desks:
     - sport
     - entertainment-arts
@@ -76,11 +76,11 @@ focus_mode:
     - query: "(Trump OR Congress OR White House OR Supreme Court) AND (US OR America)"
       category: united-states
       page_size: 8
-    - query: "(artificial intelligence OR OpenAI OR Nvidia OR semiconductor OR cybersecurity)"
+    - query: "(artificial intelligence OR OpenAI OR Nvidia OR semiconductor OR cybersecurity OR chip OR RAM)"
       category: technology-ai
       page_size: 8
-    - query: "(fashion week OR runway OR couture OR streetwear OR Vogue OR \"luxury brand\" OR Met Gala)"
-      category: fashion-style
+    - query: "(markets OR inflation OR Fed OR recession OR tariffs OR supply chain)"
+      category: business-economy
       page_size: 8
 
 # Taxonomy source of truth: automation/waqya_categories.yaml
@@ -92,6 +92,10 @@ images:
   enabled: true
   provider: pexels
   inline_count: 3
+  # Prefer the source article's og:image as hero (more story-specific than stock)
+  prefer_og_featured: true
+  # For death/tributes: Wikipedia portrait if source og:image missing
+  wikipedia_portraits: true
   # Before each run: load Pexels IDs + image URLs already on waqya.com into images.db
   sync_from_site: true
   sync_max_post_pages: 10
@@ -322,3 +326,17 @@ social:
     telegram_join_every_n: 3
     digest_footer: true
   # X/Twitter intentionally omitted — write API is paid; use Bluesky/Mastodon/Telegram instead.
+
+# Syndication — link shares with canonical source on waqya.com (not comment spam)
+syndication:
+  enabled: true
+  max_posts_per_run: 3
+  min_quality_score: 78
+  linkedin:
+    enabled: true
+    # Company page: https://www.linkedin.com/company/waqya/
+    organization_vanity: waqya
+  medium:
+    enabled: false
+    # Requires legacy Integration Token (Medium stopped new tokens Jan 2025)
+    publish_status: public

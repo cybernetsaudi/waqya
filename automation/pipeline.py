@@ -102,12 +102,17 @@ def run() -> int:
 
         social_counts = distribute_publish_results(results, config)
         log.info("Social: %s", social_counts)
+        from syndication import distribute_syndication_results
+
+        synd_counts = distribute_syndication_results(results, config)
+        log.info("Syndication: %s", synd_counts)
         social_summary = (
             f"Bluesky {social_counts.get('bluesky', 0)} · "
             f"Mastodon {social_counts.get('mastodon', 0)} · "
             f"TG {social_counts.get('telegram', 0)} · "
+            f"LI {synd_counts.get('linkedin', 0)} · "
             f"promos {social_counts.get('promos', 0)} · "
-            f"errors {social_counts.get('errors', 0)}"
+            f"errors {social_counts.get('errors', 0) + synd_counts.get('errors', 0)}"
         )
     except Exception:
         log.exception("Social distribution failed (continuing)")

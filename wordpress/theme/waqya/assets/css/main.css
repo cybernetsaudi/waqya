@@ -1049,6 +1049,16 @@ body.nav-open .site-header__menu-toggle .icon-close {
   text-align: center;
 }
 
+.single-post__caption a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.single-post__caption a:hover {
+  color: var(--color-ink);
+}
+
 .single-post__content {
   font-size: 1.125rem;
   line-height: 1.75;

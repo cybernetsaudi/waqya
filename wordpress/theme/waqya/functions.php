@@ -11,7 +11,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('WAQYA_VERSION', '1.9.8');
+define('WAQYA_VERSION', '1.10.2');
 define('WAQYA_DIR', get_template_directory());
 define('WAQYA_URI', get_template_directory_uri());
 
@@ -29,8 +29,10 @@ require_once WAQYA_DIR . '/inc/trust-pages.php';
 require_once WAQYA_DIR . '/inc/news-sitemap.php';
 require_once WAQYA_DIR . '/inc/topic-pages.php';
 require_once WAQYA_DIR . '/inc/follow-promo.php';
+require_once WAQYA_DIR . '/inc/feed.php';
 require_once WAQYA_DIR . '/inc/social.php';
 require_once WAQYA_DIR . '/inc/analytics.php';
+require_once WAQYA_DIR . '/inc/adsense.php';
 require_once WAQYA_DIR . '/inc/consent.php';
 require_once WAQYA_DIR . '/inc/api.php';
 require_once WAQYA_DIR . '/inc/post-meta.php';

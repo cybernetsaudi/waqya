@@ -43,25 +43,63 @@ def _wp_auth() -> tuple[str, str, str]:
 
 
 def _get_or_create_category(name: str, slug: str = "") -> Optional[int]:
+    """Resolve WP category id by slug first, then name search, then create."""
     try:
-        resp = wp_get(
-            "/wp-json/wp/v2/categories",
-            params={"search": name, "per_page": 20},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        for cat in resp.json():
-            decoded = html_module.unescape(cat["name"])
-            if decoded.lower() == name.lower() or (slug and cat.get("slug") == slug):
-                return cat["id"]
+        # Slug is authoritative — WP search breaks on "&" (Technology & AI → []).
+        if slug:
+            resp = wp_get(
+                "/wp-json/wp/v2/categories",
+                params={"slug": slug, "per_page": 5},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            cats = resp.json()
+            if cats:
+                return int(cats[0]["id"])
+
+        search_terms = [name]
+        if "&" in name:
+            search_terms.append(name.replace("&", " ").replace("  ", " ").strip())
+            search_terms.append(name.split("&")[0].strip())
+        if slug:
+            search_terms.append(slug.replace("-", " "))
+
+        seen_ids: set[int] = set()
+        for term in search_terms:
+            if not term:
+                continue
+            resp = wp_get(
+                "/wp-json/wp/v2/categories",
+                params={"search": term, "per_page": 40},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            for cat in resp.json():
+                cid = int(cat["id"])
+                if cid in seen_ids:
+                    continue
+                seen_ids.add(cid)
+                decoded = html_module.unescape(cat["name"])
+                if decoded.lower() == name.lower() or (slug and cat.get("slug") == slug):
+                    return cid
+
         payload: dict[str, str] = {"name": name}
         if slug:
             payload["slug"] = slug
         resp = wp_post("/wp-json/wp/v2/categories", json=payload, timeout=15)
+        # Slug may already exist under a slightly different name — recover by slug.
+        if resp.status_code >= 400 and slug:
+            resp2 = wp_get(
+                "/wp-json/wp/v2/categories",
+                params={"slug": slug, "per_page": 5},
+                timeout=15,
+            )
+            if resp2.ok and resp2.json():
+                return int(resp2.json()[0]["id"])
         resp.raise_for_status()
-        return resp.json()["id"]
+        return int(resp.json()["id"])
     except Exception:
-        log.exception("Category lookup/create failed for '%s'", name)
+        log.exception("Category lookup/create failed for '%s' (slug=%s)", name, slug)
         return None
 
 
@@ -259,6 +297,8 @@ class PublishResult:
     quality_notes: str = ""
     llm_body: str = ""
     llm_headline: str = ""
+    excerpt: str = ""
+    featured_image_url: str = ""
 
 
 def publish_draft(
@@ -442,6 +482,8 @@ def publish_draft(
             quality_notes=quality_notes,
             llm_body=llm_body,
             llm_headline=llm_headline,
+            excerpt=wp_plain_text(article.excerpt),
+            featured_image_url=featured_url or "",
         )
     except Exception:
         log.exception("Failed to publish draft: %s", article.headline)

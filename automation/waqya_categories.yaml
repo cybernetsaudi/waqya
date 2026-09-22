@@ -90,7 +90,7 @@ primary_categories:
     description: Armed conflict, military operations, security, terrorism
     iptc_reference: medtop:16000000
     menu_group: news-desk
-    scrape_keywords: [war, conflict, military, troops, ceasefire, nato, ukraine, gaza]
+    scrape_keywords: [conflict, military, troops, ceasefire, nato, ukraine, gaza, airstrike, invasion, battlefield, missile]
 
   politics-government:
     label: Politics & Government
@@ -259,6 +259,34 @@ primary_categories:
     description: Software, AI, cybersecurity, big tech, startups
     iptc_reference: medtop:13000000
     menu_group: topics
+    scrape_keywords:
+      - artificial intelligence
+      - openai
+      - chatgpt
+      - nvidia
+      - semiconductor
+      - cybersecurity
+      - chipflation
+      - chip
+      - microchip
+      - ram shortage
+      - gadget
+      - software
+      - open source
+      - open-source
+      - startup
+      - big tech
+      - meta
+      - google
+      - apple
+      - microsoft
+      - alibaba
+      - waymo
+      - robotaxi
+      - smartphone
+      - pixel
+      - android
+      - ios
 
   science:
     label: Science

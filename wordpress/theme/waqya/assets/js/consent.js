@@ -1,11 +1,11 @@
 /**
- * Waqya cookie consent — analytics gated until opt-in (GDPR / CCPA-ready).
+ * Waqya cookie consent — analytics + advertising gated until opt-in (GDPR / CCPA-ready).
  */
 (function () {
   'use strict';
 
   var cfg = window.waqyaConsent || {};
-  var KEY = cfg.storageKey || 'waqya_consent_v1';
+  var KEY = cfg.storageKey || 'waqya_consent_v2';
 
   function read() {
     try {
@@ -23,6 +23,7 @@
         JSON.stringify({
           necessary: true,
           analytics: !!consent.analytics,
+          advertising: !!consent.advertising,
           ts: Date.now(),
         })
       );
@@ -31,15 +32,15 @@
     }
   }
 
-  function gtagConsentUpdate(granted) {
+  function gtagConsentUpdate(analyticsGranted, adsGranted) {
     if (typeof window.gtag !== 'function') {
       return;
     }
     window.gtag('consent', 'update', {
-      analytics_storage: granted ? 'granted' : 'denied',
-      ad_storage: 'denied',
-      ad_user_data: 'denied',
-      ad_personalization: 'denied',
+      analytics_storage: analyticsGranted ? 'granted' : 'denied',
+      ad_storage: adsGranted ? 'granted' : 'denied',
+      ad_user_data: adsGranted ? 'granted' : 'denied',
+      ad_personalization: adsGranted ? 'granted' : 'denied',
     });
   }
 
@@ -77,7 +78,6 @@
       if (node.defer) {
         el.defer = true;
       }
-      var inline = node.textContent && node.textContent.trim();
       if (inline && !src) {
         el.textContent = inline;
       }
@@ -85,7 +85,6 @@
       node.setAttribute('data-waqya-activated', '1');
     });
 
-    /* Inline Site Kit gtag bootstrap stored as text/plain */
     document.querySelectorAll('script[data-waqya-consent="analytics"]').forEach(function (node) {
       var inline = node.textContent && node.textContent.trim();
       if (!inline || node.getAttribute('data-waqya-activated') === '1') {
@@ -103,11 +102,9 @@
 
   function apply(consent, showBanner) {
     var banner = document.getElementById('waqya-consent');
+    gtagConsentUpdate(!!consent.analytics, !!consent.advertising);
     if (consent.analytics) {
-      gtagConsentUpdate(true);
       activateDeferredScripts();
-    } else {
-      gtagConsentUpdate(false);
     }
     if (banner && !showBanner) {
       banner.setAttribute('hidden', '');
@@ -134,13 +131,13 @@
     var manageBtn = banner.querySelector('[data-waqya-consent="manage"]');
 
     banner.querySelector('[data-waqya-consent="accept"]').addEventListener('click', function () {
-      var c = { analytics: true };
+      var c = { analytics: true, advertising: true };
       write(c);
       apply(c, false);
     });
 
     banner.querySelector('[data-waqya-consent="reject"]').addEventListener('click', function () {
-      var c = { analytics: false };
+      var c = { analytics: false, advertising: false };
       write(c);
       apply(c, false);
     });
@@ -158,7 +155,8 @@
     if (saveBtn) {
       saveBtn.addEventListener('click', function () {
         var analytics = !!document.getElementById('waqya-consent-analytics')?.checked;
-        var c = { analytics: analytics };
+        var advertising = !!document.getElementById('waqya-consent-advertising')?.checked;
+        var c = { analytics: analytics, advertising: advertising };
         write(c);
         apply(c, false);
       });
@@ -171,9 +169,13 @@
           prefs.removeAttribute('hidden');
         }
         var stored = read();
-        var cb = document.getElementById('waqya-consent-analytics');
-        if (cb && stored) {
-          cb.checked = !!stored.analytics;
+        var cbA = document.getElementById('waqya-consent-analytics');
+        var cbAd = document.getElementById('waqya-consent-advertising');
+        if (cbA && stored) {
+          cbA.checked = !!stored.analytics;
+        }
+        if (cbAd && stored) {
+          cbAd.checked = !!stored.advertising;
         }
         if (saveBtn) {
           saveBtn.removeAttribute('hidden');
@@ -188,6 +190,6 @@
     apply(stored, false);
   } else {
     showBanner();
-    apply({ analytics: false }, true);
+    apply({ analytics: false, advertising: false }, true);
   }
 })();

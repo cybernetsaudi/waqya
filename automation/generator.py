@@ -443,6 +443,7 @@ def attach_images(articles: list[Article], config: dict | None = None) -> None:
             image_query=article.image_query,
             source_url=article.source_url,
             tags=article.tags,
+            desk=article.category or article.wp_category or "",
             batch_ctx=batch_ctx,
         )
 

@@ -76,7 +76,20 @@ get_header();
                         $caption = get_the_post_thumbnail_caption();
                         if ($caption) :
                             ?>
-                            <figcaption class="single-post__caption"><?php echo esc_html($caption); ?></figcaption>
+                            <figcaption class="single-post__caption"><?php echo wp_kses(
+                                $caption,
+                                [
+                                    'a' => [
+                                        'href'   => true,
+                                        'rel'    => true,
+                                        'target' => true,
+                                        'title'  => true,
+                                    ],
+                                    'em'     => [],
+                                    'strong' => [],
+                                    'span'   => ['class' => true],
+                                ]
+                            ); ?></figcaption>
                         <?php elseif (has_excerpt()) : ?>
                             <figcaption class="single-post__caption"><?php waqya_the_excerpt(); ?></figcaption>
                         <?php endif; ?>

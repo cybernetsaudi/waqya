@@ -50,15 +50,16 @@ function waqya_consent_assets(): void
         'privacyUrl'  => waqya_consent_privacy_url(),
         'cookieUrl'   => waqya_consent_cookie_url(),
         'plausible'   => waqya_plausible_domain(),
-        'storageKey'  => 'waqya_consent_v1',
+        'storageKey'  => 'waqya_consent_v2',
         'strings'     => [
             'title'       => __('Privacy & cookies', 'waqya'),
-            'intro'       => __('We use essential cookies to run the site. Analytics cookies help us understand readership — only if you agree.', 'waqya'),
-            'accept'      => __('Accept analytics', 'waqya'),
+            'intro'       => __('We use essential cookies to run the site. Analytics and advertising cookies load only if you agree.', 'waqya'),
+            'accept'      => __('Accept all', 'waqya'),
             'reject'      => __('Reject non-essential', 'waqya'),
             'manage'      => __('Cookie settings', 'waqya'),
             'save'        => __('Save choices', 'waqya'),
             'analytics'   => __('Analytics (traffic & engagement)', 'waqya'),
+            'advertising' => __('Advertising (Google AdSense)', 'waqya'),
             'necessary'   => __('Strictly necessary (always on)', 'waqya'),
         ],
     ]);
@@ -94,7 +95,7 @@ function waqya_render_consent_banner(): void
         <div class="waqya-consent__panel">
             <h2 id="waqya-consent-title" class="waqya-consent__title"><?php esc_html_e('Privacy & cookies', 'waqya'); ?></h2>
             <p class="waqya-consent__intro">
-                <?php esc_html_e('We use essential storage to run Waqya (e.g. dismissing this notice). Analytics helps us measure traffic and improve the site — only with your consent. See our Privacy Policy.', 'waqya'); ?>
+                <?php esc_html_e('We use essential storage to run Waqya. Analytics and advertising (Google AdSense) load only with your consent. See our Privacy Policy.', 'waqya'); ?>
             </p>
             <div class="waqya-consent__prefs" id="waqya-consent-prefs" hidden>
                 <label class="waqya-consent__check waqya-consent__check--disabled">
@@ -105,10 +106,14 @@ function waqya_render_consent_banner(): void
                     <input type="checkbox" name="analytics" id="waqya-consent-analytics">
                     <span><?php esc_html_e('Analytics (Google Analytics & Plausible)', 'waqya'); ?></span>
                 </label>
+                <label class="waqya-consent__check">
+                    <input type="checkbox" name="advertising" id="waqya-consent-advertising">
+                    <span><?php esc_html_e('Advertising (Google AdSense)', 'waqya'); ?></span>
+                </label>
             </div>
             <div class="waqya-consent__actions">
                 <button type="button" class="waqya-consent__btn waqya-consent__btn--primary" data-waqya-consent="accept">
-                    <?php esc_html_e('Accept analytics', 'waqya'); ?>
+                    <?php esc_html_e('Accept all', 'waqya'); ?>
                 </button>
                 <button type="button" class="waqya-consent__btn" data-waqya-consent="reject">
                     <?php esc_html_e('Reject non-essential', 'waqya'); ?>
