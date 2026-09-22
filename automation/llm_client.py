@@ -89,12 +89,12 @@ def _groq_params(task: Task, config: dict, *, model_override: str | None = None)
     g = _llm_cfg(config).get("groq", {})
     if task == "headline":
         return {
-            "model": model_override or g.get("headline_model", "llama-3.1-8b-instant"),
+            "model": model_override or g.get("headline_model", "openai/gpt-oss-20b"),
             "temperature": float(g.get("headline_temperature", g.get("temperature", 0.9))),
             "max_tokens": int(g.get("headline_max_tokens", 400)),
         }
     return {
-        "model": model_override or g.get("model", "llama-3.3-70b-versatile"),
+        "model": model_override or g.get("model", "openai/gpt-oss-120b"),
         "temperature": float(g.get("temperature", 0.85)),
         "max_tokens": int(g.get("max_tokens", 2000)),
     }
