@@ -6,9 +6,9 @@ Waqya posts **live** pipeline articles with **no human approval** and **no paid 
 
 | Channel | Cost | Status | Setup |
 |---------|------|--------|-------|
-| **Bluesky** | Free | **Live** (`@waqya.bsky.social`) | Done |
+| **Bluesky** | Free | **Paused** (`@waqya.bsky.social` has spam label) | Re-enable at 1 post/day after appeal |
 | **Mastodon** | Free | Ready in code | Create account + access token (~5 min) |
-| **Telegram channel** | Free | **Live** (`t.me/waqya_news`) | Done + auto-promote join CTAs |
+| **Telegram channel** | Free | **Live, capped** (`t.me/waqya_news`, max 3/day) | Done |
 | Weekly email digest | Free | Active on WordPress | Visitors subscribe themselves |
 | **X / Twitter** | Paid write API | **Not used** | Skip |
 
@@ -16,9 +16,20 @@ Drafts held by the quality gate are never posted.
 
 ---
 
-## 1. Bluesky — already configured
+## 1. Bluesky — paused (spam risk)
 
-Posts after every successful pipeline publish. Every other post (configurable) appends the Telegram invite.
+Account `@waqya.bsky.social` carried a Bluesky **spam** label after high-volume posting into almost no audience. Auto-post is **off** (`social.bluesky.enabled: false`).
+
+After you appeal / the label clears:
+
+```yaml
+social:
+  bluesky:
+    enabled: true
+    max_posts_per_day: 1
+```
+
+Keep promo CTAs off (`bluesky_promo_every_n: 0`) until followers are real.
 
 Profile: [bsky.app/profile/waqya.bsky.social](https://bsky.app/profile/waqya.bsky.social)
 

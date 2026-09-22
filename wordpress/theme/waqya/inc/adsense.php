@@ -6,6 +6,10 @@
  * Script loads for site verification; personalized ads follow Consent Mode
  * (see assets/js/consent.js → advertising preference).
  *
+ * Ad *slots* stay off until traffic is measurable (Search Console / analytics
+ * sessions). Toggle via option `waqya_adsense_slots_enabled` = true, or filter
+ * `waqya_adsense_slots_enabled`. Do not ship empty units on a near-zero-traffic site.
+ *
  * @package Waqya
  */
 
@@ -40,6 +44,17 @@ function waqya_adsense_enabled(): bool
 }
 
 /**
+ * Whether in-article / sidebar ad units may render.
+ * Default false — verification script only until sessions exist.
+ */
+function waqya_adsense_slots_enabled(): bool
+{
+    $enabled = (bool) get_option('waqya_adsense_slots_enabled', false);
+
+    return (bool) apply_filters('waqya_adsense_slots_enabled', $enabled);
+}
+
+/**
  * Output AdSense loader in <head> (required for Google site verification).
  * Personalized ads remain gated by Consent Mode until advertising consent.
  */
@@ -56,6 +71,29 @@ function waqya_adsense_head(): void
     );
 }
 add_action('wp_head', 'waqya_adsense_head', 20);
+
+/**
+ * Future ad unit helper — no-op until slots are explicitly enabled + slot IDs set.
+ * Wire into single.php / sidebar only after measurable sessions.
+ */
+function waqya_adsense_unit(string $slot = '', string $format = 'auto'): void
+{
+    if (! waqya_adsense_enabled() || ! waqya_adsense_slots_enabled()) {
+        return;
+    }
+    if ($slot === '') {
+        return;
+    }
+
+    $client = waqya_adsense_client();
+    printf(
+        '<ins class="adsbygoogle" style="display:block" data-ad-client="%s" data-ad-slot="%s" data-ad-format="%s" data-full-width-responsive="true"></ins>' . "\n"
+        . '<script>(adsbygoogle = window.adsbygoogle || []).push({});</script>' . "\n",
+        esc_attr($client),
+        esc_attr($slot),
+        esc_attr($format)
+    );
+}
 
 /**
  * Serve ads.txt at /ads.txt (IAB Authorized Digital Sellers).

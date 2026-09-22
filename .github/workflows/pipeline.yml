@@ -2,8 +2,8 @@ name: Waqya News Pipeline
 
 on:
   schedule:
-    # Run every 4 hours at minute 15 (avoid the exact hour when GH Actions is busiest)
-    - cron: "15 */4 * * *"
+    # 3×/day — sized for Gemini free tier + slow social (was every 4h)
+    - cron: "15 5,13,21 * * *"
   workflow_dispatch: # Allow manual trigger from the GitHub Actions UI
 
 env:

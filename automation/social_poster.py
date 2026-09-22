@@ -59,6 +59,43 @@ def mark_posted(post_id: int, network: str, remote_uri: str = "") -> None:
         conn.commit()
 
 
+def posts_today(network: str) -> int:
+    """Count successful posts to a network in the last 24 hours (UTC)."""
+    with _conn() as conn:
+        row = conn.execute(
+            """
+            SELECT COUNT(*) FROM social_posts
+            WHERE network = ?
+              AND posted_at >= datetime('now', '-1 day')
+            """,
+            (network,),
+        ).fetchone()
+    return int(row[0]) if row else 0
+
+
+def _network_daily_cap(config: dict, network: str, *, config_key: str | None = None) -> int | None:
+    """Optional per-network daily cap from social.<key>.max_posts_per_day."""
+    block = config.get("social", {}).get(config_key or network, {}) or {}
+    raw = block.get("max_posts_per_day")
+    if raw is None:
+        return None
+    try:
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return None
+
+
+def _under_daily_cap(
+    config: dict, network: str, *, config_key: str | None = None
+) -> bool:
+    cap = _network_daily_cap(config, network, config_key=config_key)
+    if cap is None:
+        return True
+    if cap <= 0:
+        return False
+    return posts_today(network) < cap
+
+
 def _promote_cfg(config: dict) -> dict:
     return config.get("social", {}).get("promote", {}) or {}
 
@@ -294,6 +331,7 @@ def distribute_publish_results(results: list, config: dict | None = None) -> dic
         }
 
     max_per_run = int(social.get("max_posts_per_run", 5))
+    min_quality = float(social.get("min_quality_score", 0) or 0)
     counts = {
         "bluesky": 0,
         "mastodon": 0,
@@ -307,6 +345,13 @@ def distribute_publish_results(results: list, config: dict | None = None) -> dic
 
     live = [r for r in results if getattr(r, "status", "") == "publish" and getattr(r, "post_url", "")]
     live.sort(key=lambda r: getattr(r, "quality_score", 0) or 0, reverse=True)
+    if min_quality > 0:
+        before = len(live)
+        live = [r for r in live if (getattr(r, "quality_score", 0) or 0) >= min_quality]
+        skipped_q = before - len(live)
+        if skipped_q:
+            counts["skipped"] += skipped_q
+            log.info("Social: skipped %d below min_quality_score %.0f", skipped_q, min_quality)
 
     join_every = int(_promote_cfg(config).get("telegram_join_every_n", 0) or 0)
 
@@ -331,10 +376,14 @@ def distribute_publish_results(results: list, config: dict | None = None) -> dic
         bsky_text, masto_text, tg_text, tg_url = text_short, text_long, text_long, url
 
         did_any = False
+        bluesky_ok = _bluesky_enabled(config) and _under_daily_cap(config, "bluesky")
+        if _bluesky_enabled(config) and not bluesky_ok:
+            log.info("Bluesky daily cap reached — skipping #%d", post_id)
+            counts["skipped"] += 1
         did_any |= _try_network(
             post_id=post_id,
             network="bluesky",
-            enabled=_bluesky_enabled(config),
+            enabled=bluesky_ok,
             post_fn=lambda t=bsky_text: post_to_bluesky(t, config),
             counts=counts,
         )
@@ -345,10 +394,16 @@ def distribute_publish_results(results: list, config: dict | None = None) -> dic
             post_fn=lambda t=masto_text: post_to_mastodon(t, config),
             counts=counts,
         )
+        telegram_ok = _telegram_channel_enabled(config) and _under_daily_cap(
+            config, "telegram", config_key="telegram_channel"
+        )
+        if _telegram_channel_enabled(config) and not telegram_ok:
+            log.info("Telegram daily cap reached — skipping #%d", post_id)
+            counts["skipped"] += 1
         did_any |= _try_network(
             post_id=post_id,
             network="telegram",
-            enabled=_telegram_channel_enabled(config),
+            enabled=telegram_ok,
             post_fn=lambda t=tg_text, u=tg_url: post_to_telegram_channel(
                 t, config, article_url=u
             ),
