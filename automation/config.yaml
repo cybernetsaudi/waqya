@@ -228,7 +228,10 @@ llm:
     temperature: 0.85
     headline_temperature: 0.9
     max_tokens: 2000
-    headline_max_tokens: 400
+    # gpt-oss reasons before answering: 400 tokens / default effort returned
+    # empty content every time, silently pushing all headlines onto Gemini.
+    headline_max_tokens: 1500
+    headline_reasoning_effort: low
 
 default_category: current-affairs
 

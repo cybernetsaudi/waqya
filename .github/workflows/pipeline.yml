@@ -58,7 +58,12 @@ jobs:
             automation/images.db
             automation/budget_usage.json
             automation/newsapi_usage.json
-          key: waqya-dedup-v4
+          # actions/cache never re-saves on an exact key hit, so a fixed key froze
+          # this state at its first snapshot. Unique key per run + prefix restore
+          # saves fresh state every run and restores the most recent one.
+          key: waqya-dedup-v4-${{ github.run_id }}
+          restore-keys: |
+            waqya-dedup-v4
 
       - name: Run pipeline
         working-directory: automation

@@ -91,7 +91,10 @@ def _groq_params(task: Task, config: dict, *, model_override: str | None = None)
         return {
             "model": model_override or g.get("headline_model", "openai/gpt-oss-20b"),
             "temperature": float(g.get("headline_temperature", g.get("temperature", 0.9))),
-            "max_tokens": int(g.get("headline_max_tokens", 400)),
+            "max_tokens": int(g.get("headline_max_tokens", 1500)),
+            # gpt-oss models reason before answering; at default effort the
+            # reasoning eats the whole token budget and content comes back empty.
+            "reasoning_effort": g.get("headline_reasoning_effort", "low"),
         }
     return {
         "model": model_override or g.get("model", "openai/gpt-oss-120b"),
@@ -171,6 +174,9 @@ def _call_groq(
 
     params = _groq_params(task, config, model_override=model_override)
     client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+    extra = {}
+    if params.get("reasoning_effort"):
+        extra["reasoning_effort"] = params["reasoning_effort"]
     try:
         resp = client.chat.completions.create(
             model=params["model"],
@@ -180,6 +186,7 @@ def _call_groq(
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
+            **extra,
         )
     except AuthenticationError as exc:
         raise LLMAuthError(f"Groq auth failed: {exc}") from exc

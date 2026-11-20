@@ -1,8 +1,11 @@
-openai>=1.30.0
-google-genai>=1.0.0
-requests>=2.31.0
-feedparser>=6.0.11
-python-telegram-bot>=21.0
-pyyaml>=6.0.1
-python-dotenv>=1.0.1
-atproto>=0.0.55
+# Upper bounds are deliberate: CI installs fresh on every run, and the
+# google-genai 3.0.0 release (2026-11-06) coincided with the pipeline going
+# silent. Raise a cap only after testing the new major version.
+openai>=1.30.0,<4
+google-genai>=1.0.0,<3
+requests>=2.31.0,<3
+feedparser>=6.0.11,<7
+python-telegram-bot>=21.0,<23
+pyyaml>=6.0.1,<7
+python-dotenv>=1.0.1,<2
+atproto>=0.0.55,<0.1

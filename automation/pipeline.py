@@ -80,8 +80,9 @@ def run() -> int:
     log.info("=" * 50)
     articles = generate_batch(stories)
     if not articles:
-        log.warning("Article generation produced nothing — exiting")
-        return 0
+        # Fail the run: a green run that publishes nothing hid a two-week stall.
+        log.error("Article generation produced nothing for %d stories", len(stories))
+        return 1
 
     log.info("=" * 50)
     log.info("STEP 3 / 4 — Publishing to WordPress")
