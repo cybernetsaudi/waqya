@@ -293,17 +293,15 @@ def build_meta_description(
     min_len: int = 135,
     max_len: int = 155,
 ) -> str:
-    """Meta description with keyphrase near the start, 135–155 chars."""
-    focus = wp_plain_text(focus).strip()
-    text = wp_plain_text(meta) or wp_plain_text(headline)
-    low = text.lower()
-    f_low = focus.lower()
-    if f_low not in low and not (f_low == "ai" and " ai" in f" {low}"):
-        lead = focus[0].upper() + focus[1:] if focus else ""
-        text = f"{lead}: {text}" if lead else text
+    """Meta description, at most ``max_len`` chars. Safe to call repeatedly.
 
+    ``focus`` is accepted for compatibility but no longer prefixed onto the
+    text: "Keyphrase: sentence" read as templated on every post.
+    """
+    text = wp_plain_text(meta) or wp_plain_text(headline)
     text = re.sub(r"\s+", " ", text).strip()
-    suffix = "Analysis and context from Waqya commentary."
+    # Earlier passes appended an ellipsis each time they truncated.
+    text = re.sub(r"[\s.…]*…+$", "", text).strip()
     parts = [
         p.strip()
         for p in re.split(
@@ -314,16 +312,19 @@ def build_meta_description(
         if p.strip()
     ]
     text = parts[0] if parts else text
-    if len(text) < min_len:
-        text = f"{text} {suffix}".strip()
-    elif suffix.lower() not in text.lower():
-        text = f"{text} {suffix}".strip()
+    # The suffix is stripped from old text above but no longer appended: the
+    # same sentence on every post is boilerplate, and a short description is fine.
 
     if len(text) <= max_len:
         return text
 
-    cut = text[: max_len + 1].rsplit(" ", 1)[0].rstrip(".,;:")
-    return cut + "…" if cut else text[:max_len]
+    # Prefer ending on a complete sentence; otherwise cut at a word boundary.
+    window = text[:max_len]
+    stop = max(window.rfind(". "), window.rfind("? "), window.rfind("! "))
+    if stop >= min_len // 2:
+        return window[: stop + 1]
+    cut = text[:max_len].rsplit(" ", 1)[0].rstrip(".,;:—-")
+    return (cut + "…") if cut else text[:max_len]
 
 
 def build_post_slug(focus: str, headline: str) -> str:

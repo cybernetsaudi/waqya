@@ -499,12 +499,17 @@ def _clear_featured_home() -> None:
                 "status": "publish",
                 "meta_key": "_waqya_featured_home",
                 "meta_value": "1",
-                "_fields": "id",
+                "_fields": "id,meta",
             },
             timeout=15,
         )
         resp.raise_for_status()
         for post in resp.json():
+            # The REST API ignores meta_key/meta_value unless a plugin adds
+            # support, so check the flag here: writing to unflagged posts
+            # bumped post_modified on the five newest posts every run.
+            if str((post.get("meta") or {}).get("_waqya_featured_home", "")) != "1":
+                continue
             wp_post(
                 f"/wp-json/wp/v2/posts/{post['id']}",
                 json={"meta": {"_waqya_featured_home": ""}},

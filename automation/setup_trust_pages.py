@@ -53,7 +53,7 @@ def ensure_trust_pages() -> int:
         try:
             r = requests.get(
                 f"{base}/wp-json/wp/v2/pages",
-                params={"slug": slug, "per_page": 1},
+                params={"slug": slug, "per_page": 1, "context": "edit"},
                 auth=auth,
                 timeout=15,
             )
@@ -69,6 +69,15 @@ def ensure_trust_pages() -> int:
 
             if existing:
                 page_id = existing[0]["id"]
+                current = existing[0]
+                cur_meta = current.get("meta") or {}
+                unchanged = (
+                    (current.get("content") or {}).get("raw", "").strip() == body["content"].strip()
+                    and all(str(cur_meta.get(k, "")) == str(v) for k, v in meta.items())
+                )
+                if unchanged:
+                    # Rewriting identical pages bumped their modified date on every run.
+                    continue
                 requests.post(
                     f"{base}/wp-json/wp/v2/pages/{page_id}",
                     json=body,

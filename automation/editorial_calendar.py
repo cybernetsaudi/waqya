@@ -23,6 +23,11 @@ def today_focus(config: dict) -> str:
         schedule = cal.get("weekdays", {})
         focus = schedule.get(weekday, schedule.get("default", ""))
         if focus:
-            lines.append(f"Editorial focus for today ({weekday.title()}): {focus}")
+            lines.append(
+                f"Desk scheduling note for {weekday.title()} (context only): {focus}. "
+                "This note is about which desks are prioritised today. Do not let it "
+                "change this article's subject, tone, vocabulary or metaphors; write "
+                "in the register of the story's own desk."
+            )
 
     return "\n".join(lines)
